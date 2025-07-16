@@ -4,6 +4,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:image_picker/image_picker.dart';
 import 'package:http_parser/http_parser.dart'; 
+import './openai_service.dart';
 
 class ChatScreen extends StatefulWidget {
   const ChatScreen({super.key});
@@ -252,6 +253,7 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
           _submitAttendance();
         } else {
           _addBotMessage("Please enter the topic you covered (at least 3 characters). ❌");
+
         }
         break;
     }

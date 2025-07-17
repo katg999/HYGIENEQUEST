@@ -3,7 +3,8 @@ import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'dart:io';
 import 'package:image_picker/image_picker.dart';
-import 'package:http_parser/http_parser.dart'; 
+import 'package:http_parser/http_parser.dart';
+import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';
 import './openai_service.dart';
 
 class ChatScreen extends StatefulWidget {
@@ -18,6 +19,8 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
   final TextEditingController _controller = TextEditingController();
   final ScrollController _scrollController = ScrollController();
   late AnimationController _animationController;
+  late final OpenAIService _openAIService;
+ final TextRecognizer _textRecognizer = TextRecognizer();
   
   int _step = 0;
   String _phoneNumber = '';
@@ -45,6 +48,7 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
       duration: const Duration(milliseconds: 300),
       vsync: this,
     );
+    _openAIService = OpenAIService();
     _addBotMessage("Welcome to the Dettol Hygiene Quest Chatbot! 🤖", showAvatar: true);
     _addBotMessage("I'm here to support your hygiene education efforts in class. 📚");
     _addBotMessage("Please enter your phone number to get started. 📱");
@@ -55,6 +59,7 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
     _animationController.dispose();
     _controller.dispose();
     _scrollController.dispose();
+    _textRecognizer.close();
     super.dispose();
   }
 
@@ -253,7 +258,6 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
           _submitAttendance();
         } else {
           _addBotMessage("Please enter the topic you covered (at least 3 characters). ❌");
-
         }
         break;
     }
@@ -418,8 +422,62 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
       return;
     }
 
-    _addBotMessage("🕒 Uploading and analyzing your lesson plan... please wait.");
+    _addBotMessage("🕒 Uploading and analyzing your lesson plan... please wait.", showLoading: true);
 
+    try {
+      // First try to extract text locally
+      final extractedText = await _extractTextFromImage(File(pickedFile.path));
+      
+      // Then send to OpenAI for analysis
+      final analysis = await _openAIService.analyzeLessonPlan(extractedText);
+      
+      // Display the results
+      _displayAnalysisResults(analysis);
+      
+      // Also submit to the backend if needed
+      await _submitLessonPlanToBackend(pickedFile);
+      
+    } catch (e) {
+      _addBotMessage("❌ Error processing lesson plan: ${e.toString()}");
+    } finally {
+      setState(() => _isLoading = false);
+    }
+  }
+
+  Future<String> _extractTextFromImage(File imageFile) async {
+    try {
+      final inputImage = InputImage.fromFile(imageFile);
+      final recognizedText = await _textRecognizer.processImage(inputImage);
+      return recognizedText.text;
+    } catch (e) {
+      _addBotMessage("⚠️ Couldn't read text from image. Sending image directly for analysis.");
+      rethrow;
+    }
+  }
+
+  void _displayAnalysisResults(Map<String, dynamic> analysis) {
+    // Clear loading message
+    setState(() {
+      _chat.removeWhere((msg) => msg['showLoading'] == true);
+    });
+
+    // Display score
+    _addBotMessage("📝 Lesson Plan Score: ${analysis['score']}/100");
+    
+    // Display feedback
+    if (analysis['feedback'] is List) {
+      _addBotMessage("🔍 Suggestions for Improvement:");
+      for (var suggestion in analysis['feedback']) {
+        _addBotMessage("• $suggestion");
+      }
+    }
+    
+    // Display enhanced plan
+    _addBotMessage("✨ IMPROVED LESSON PLAN ✨");
+    _addBotMessage(analysis['enhanced_plan'] ?? "");
+  }
+
+  Future<void> _submitLessonPlanToBackend(XFile pickedFile) async {
     try {
       final request = http.MultipartRequest(
         'POST',
@@ -440,19 +498,12 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
       if (response.statusCode == 200) {
         final respStr = await response.stream.bytesToString();
         final result = jsonDecode(respStr);
-        final score = result['score'];
-        final caption = result['caption'];
         final downloadUrl = result['download_url'];
-
-        _addBotMessage("✅ Lesson plan received! Your score: $score/100");
-        _addBotMessage("📝 Caption/Feedback:\n$caption");
         _addBotMessage("📥 [Download enhanced lesson plan]($downloadUrl)");
-      } else {
-        final error = await response.stream.bytesToString();
-        _addBotMessage("❌ Failed to submit lesson plan. Server responded with status: ${response.statusCode}\n$error");
       }
     } catch (e) {
-      _addBotMessage("❌ Error uploading image: ${e.toString()}");
+      // Don't show error if backend submission fails since we already have the analysis
+      debugPrint("Error submitting to backend: $e");
     }
   }
 
@@ -500,7 +551,8 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
         _attendanceStep = 0;
         break;
       case 'Submit Lesson Plan':
-        _addBotMessage("📸 Please share your lesson plan.\nAttach the image of your handwritten lesson plan.");
+        _addBotMessage("📚 Let's analyze your lesson plan!");
+        _addBotMessage("📸 Please share your lesson plan (image of your handwritten plan).");
         _pickAndSubmitLessonPlan();
         break;
       case 'Report An Issue':
@@ -729,135 +781,139 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
     );
   }
 
-    Widget _buildDropdownMenu() {
-      return Container(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          children: [
-            const Text(
-              'What would you like to do?',
-              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
+  Widget _buildDropdownMenu() {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        children: [
+          const Text(
+            'What would you like to do?',
+            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
+          ),
+          const SizedBox(height: 16),
+          Container(
+            width: double.infinity,
+            decoration: BoxDecoration(
+              border: Border.all(color: Colors.teal.shade300),
+              borderRadius: BorderRadius.circular(10),
             ),
-            const SizedBox(height: 16),
-            Container(
-              width: double.infinity,
-              decoration: BoxDecoration(
-                border: Border.all(color: Colors.teal.shade300),
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: DropdownButtonHideUnderline(
-                child: DropdownButton<String>(
-                  hint: const Padding(
-                    padding: EdgeInsets.symmetric(horizontal: 16),
-                    child: Text("Select an option..."),
-                  ),
-                  isExpanded: true,
-                  icon: const Padding(
-                    padding: EdgeInsets.only(right: 16),
-                    child: Icon(Icons.arrow_drop_down, color: Colors.teal),
-                  ),
-                  items: [
-                    {'value': 'Submit Attendance', 'icon': Icons.people, 'desc': 'Record daily attendance'},
-                    {'value': 'Submit Lesson Plan', 'icon': Icons.book, 'desc': 'Upload lesson plans'},
-                    {'value': 'Report An Issue', 'icon': Icons.report_problem, 'desc': 'Report problems'},
-                    {'value': 'Check Performance', 'icon': Icons.analytics, 'desc': 'View your stats'},
-                    {'value': 'Exit', 'icon': Icons.exit_to_app, 'desc': 'Close the app'},
-                  ].map((item) {
-                    return DropdownMenuItem<String>(
-                      value: item['value'] as String,
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 16),
-                        child: Row(
-                          children: [
-                            Icon(item['icon'] as IconData, color: Colors.teal, size: 20),
-                            const SizedBox(width: 12),
-                            Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Text(
-                                  item['value'] as String,
-                                  style: const TextStyle(fontWeight: FontWeight.w500),
-                                ),
-                                Text(
-                                  item['desc'] as String,
-                                  style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
-                                ),
-                              ],
-                            ),
-                          ],
-                        ),
-                      ),
-                    );
-                  }).toList(),
-                  onChanged: (String? newValue) {
-                    if (newValue != null) {
-                      _handleDropdownSelection(newValue);
-                    }
-                  },
+            child: DropdownButtonHideUnderline(
+              child: DropdownButton<String>(
+                hint: const Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 16),
+                  child: Text("Select an option..."),
                 ),
-              ),
-            ),
-          ],
-        ),
-      );
-    }
-
-    Widget _buildTextInput() {
-      return Container(
-        padding: const EdgeInsets.all(16),
-        child: Row(
-          children: [
-            Expanded(
-              child: TextField(
-                controller: _controller,
-                onSubmitted: _handleUserInput,
-                enabled: !_isLoading,
-                decoration: InputDecoration(
-                  hintText: "Type your message...",
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(25),
-                    borderSide: BorderSide(color: Colors.teal.shade300),
-                  ),
-                  enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(25),
-                    borderSide: BorderSide(color: Colors.teal.shade300),
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(25),
-                    borderSide: BorderSide(color: Colors.teal.shade600, width: 2),
-                  ),
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                  suffixIcon: _isLoading
-                      ? const Padding(
-                          padding: EdgeInsets.all(12),
-                          child: SizedBox(
-                            width: 20,
-                            height: 20,
-                            child: CircularProgressIndicator(strokeWidth: 2),
+                isExpanded: true,
+                icon: const Padding(
+                  padding: EdgeInsets.only(right: 16),
+                  child: Icon(Icons.arrow_drop_down, color: Colors.teal),
+                ),
+                items: [
+                  {'value': 'Submit Attendance', 'icon': Icons.people, 'desc': 'Record daily attendance'},
+                  {'value': 'Submit Lesson Plan', 'icon': Icons.book, 'desc': 'Upload lesson plans'},
+                  {'value': 'Report An Issue', 'icon': Icons.report_problem, 'desc': 'Report problems'},
+                  {'value': 'Check Performance', 'icon': Icons.analytics, 'desc': 'View your stats'},
+                  {'value': 'Exit', 'icon': Icons.exit_to_app, 'desc': 'Close the app'},
+                ].map((item) {
+                  return DropdownMenuItem<String>(
+                    value: item['value'] as String,
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      child: Row(
+                        children: [
+                          Icon(item['icon'] as IconData, color: Colors.teal, size: 20),
+                          const SizedBox(width: 12),
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                item['value'] as String,
+                                style: const TextStyle(fontWeight: FontWeight.w500),
+                              ),
+                              Text(
+                                item['desc'] as String,
+                                style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+                              ),
+                            ],
                           ),
-                        )
-                      : null,
-                ),
-              ),
-            ),
-            const SizedBox(width: 8),
-            Container(
-              decoration: BoxDecoration(
-                color: Colors.teal,
-                borderRadius: BorderRadius.circular(25),
-              ),
-              child: IconButton(
-                icon: const Icon(Icons.send, color: Colors.white),
-                onPressed: _isLoading ? null : () {
-                  if (_controller.text.trim().isNotEmpty) {
-                    _handleUserInput(_controller.text.trim());
+                        ],
+                      ),
+                    ),
+                  );
+                }).toList(),
+                onChanged: (String? newValue) {
+                  if (newValue != null) {
+                    _handleDropdownSelection(newValue);
                   }
                 },
               ),
             ),
-          ],
-        ),
-      );
-    }
+          ),
+        ],
+      ),
+    );
   }
+
+  Widget _buildTextInput() {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      child: Row(
+        children: [
+          Expanded(
+            child: TextField(
+              controller: _controller,
+              onSubmitted: _handleUserInput,
+              enabled: !_isLoading,
+              decoration: InputDecoration(
+                hintText: "Type your message...",
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(25),
+                  borderSide: BorderSide(color: Colors.teal.shade300),
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(25),
+                  borderSide: BorderSide(color: Colors.teal.shade300),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(25),
+                  borderSide: BorderSide(color: Colors.teal.shade600, width: 2),
+                ),
+                contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                suffixIcon: _isLoading
+                    ? const Padding(
+                        padding: EdgeInsets.all(12),
+                        child: SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        ),
+                      )
+                    : IconButton(
+                        icon: const Icon(Icons.upload),
+                        onPressed: _isLoading ? null : _pickAndSubmitLessonPlan,
+                        tooltip: 'Upload Lesson Plan',
+                      ),
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          Container(
+            decoration: BoxDecoration(
+              color: Colors.teal,
+              borderRadius: BorderRadius.circular(25),
+            ),
+            child: IconButton(
+              icon: const Icon(Icons.send, color: Colors.white),
+              onPressed: _isLoading ? null : () {
+                if (_controller.text.trim().isNotEmpty) {
+                  _handleUserInput(_controller.text.trim());
+                }
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}

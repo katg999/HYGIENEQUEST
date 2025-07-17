@@ -6,6 +6,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:http_parser/http_parser.dart';
 import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';
 import './openai_service.dart';
+import './attendance_service.dart';
 
 class ChatScreen extends StatefulWidget {
   const ChatScreen({super.key});
@@ -20,7 +21,8 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
   final ScrollController _scrollController = ScrollController();
   late AnimationController _animationController;
   late final OpenAIService _openAIService;
- final TextRecognizer _textRecognizer = TextRecognizer();
+  late final AttendanceService _attendanceService;
+  final TextRecognizer _textRecognizer = TextRecognizer();
   
   int _step = 0;
   String _phoneNumber = '';
@@ -49,6 +51,7 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
       vsync: this,
     );
     _openAIService = OpenAIService();
+    _attendanceService = AttendanceService();
     _addBotMessage("Welcome to the Dettol Hygiene Quest Chatbot! 🤖", showAvatar: true);
     _addBotMessage("I'm here to support your hygiene education efforts in class. 📚");
     _addBotMessage("Please enter your phone number to get started. 📱");
@@ -59,6 +62,7 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
     _animationController.dispose();
     _controller.dispose();
     _scrollController.dispose();
+    _attendanceService.dispose();
     _textRecognizer.close();
     super.dispose();
   }
@@ -147,6 +151,78 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
     final ugandanPhoneRegex = RegExp(r'^(\+256|0)[0-9]{9}$');
     return ugandanPhoneRegex.hasMatch(phone.replaceAll(' ', ''));
   }
+
+
+  Future<void> _pickAndAnalyzeAttendanceRegister() async {
+  final picker = ImagePicker();
+  final pickedFile = await picker.pickImage(source: ImageSource.gallery);
+
+  if (pickedFile == null) {
+    _addBotMessage("❌ No image selected. Please try again.");
+    return;
+  }
+
+  setState(() {
+    _isLoading = true;
+  });
+
+  _addBotMessage("🔍 Processing attendance register... please wait.", showLoading: true);
+
+  try {
+    final result = await _attendanceService.processAttendanceRegister(File(pickedFile.path));
+    
+    // Clear loading message
+    setState(() {
+      _chat.removeWhere((msg) => msg['showLoading'] == true);
+    });
+
+    if (result['success'] == true) {
+      final analysis = result['analysis'] as Map<String, dynamic>;
+      final pdfPath = result['pdfPath'] as String;
+      
+      _displayAttendanceResults(analysis, pdfPath);
+    } else {
+      _addBotMessage("❌ Error analyzing attendance register: ${result['error']}");
+    }
+  } catch (e) {
+    setState(() {
+      _chat.removeWhere((msg) => msg['showLoading'] == true);
+    });
+    _addBotMessage("❌ Error processing attendance register: ${e.toString()}");
+  } finally {
+    setState(() {
+      _isLoading = false;
+    });
+  }
+}
+
+void _displayAttendanceResults(Map<String, dynamic> analysis, String pdfPath) {
+  final summary = analysis['summary'] as Map<String, dynamic>? ?? {};
+  final students = analysis['students'] as List<dynamic>? ?? [];
+  final date = analysis['date'] as String? ?? 'Date not specified';
+  final classInfo = analysis['class_info'] as String? ?? 'Class not specified';
+
+  // Display summary
+  _addBotMessage("📊 ATTENDANCE ANALYSIS COMPLETE");
+  _addBotMessage("📅 Date: $date");
+  _addBotMessage("🏫 Class: $classInfo");
+  _addBotMessage("👥 Total Students: ${summary['total_count'] ?? 0}");
+  _addBotMessage("✅ Present: ${summary['present_count'] ?? 0}");
+  _addBotMessage("❌ Absent: ${summary['absent_count'] ?? 0}");
+  
+  // Show absent students with reasons
+  final absentStudents = students.where((s) => s['status'] == 'absent').toList();
+  if (absentStudents.isNotEmpty) {
+    _addBotMessage("📝 ABSENT STUDENTS:");
+    for (var student in absentStudents) {
+      final reason = student['reason'] ?? 'No reason specified';
+      _addBotMessage("• ${student['name']}: $reason");
+    }
+  }
+
+  _addBotMessage("📄 Analysis complete! PDF report generated at: $pdfPath");
+  _addBotMessage("What would you like to do next? 🤔");
+}
 
   Future<void> _checkRegistrationStatus() async {
     setState(() {
@@ -555,6 +631,12 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
         _addBotMessage("📸 Please share your lesson plan (image of your handwritten plan).");
         _pickAndSubmitLessonPlan();
         break;
+
+      case 'Check Attendance':
+          _addBotMessage("📋 Let's analyze your attendance register!");
+          _addBotMessage("📸 Please upload a photo of your attendance register.");
+          _pickAndAnalyzeAttendanceRegister();
+          break;  
       case 'Report An Issue':
         _addBotMessage("🚨 Issue reporting feature is coming soon! In the meantime, you can contact our support team.");
         break;
@@ -811,6 +893,7 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
                 items: [
                   {'value': 'Submit Attendance', 'icon': Icons.people, 'desc': 'Record daily attendance'},
                   {'value': 'Submit Lesson Plan', 'icon': Icons.book, 'desc': 'Upload lesson plans'},
+                  {'value': 'Check Attendance', 'icon': Icons.fact_check, 'desc': 'Analyze attendance register'},
                   {'value': 'Report An Issue', 'icon': Icons.report_problem, 'desc': 'Report problems'},
                   {'value': 'Check Performance', 'icon': Icons.analytics, 'desc': 'View your stats'},
                   {'value': 'Exit', 'icon': Icons.exit_to_app, 'desc': 'Close the app'},

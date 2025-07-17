@@ -1,7 +1,20 @@
 import 'package:flutter/material.dart';
-import 'home_screen.dart'; // ✅ Corrected path
-import 'chart_screen.dart'; 
-void main() {
+import 'home_screen.dart';
+import 'chart_screen.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
+
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+
+  try {
+    await dotenv.load(fileName: ".env");
+    print("✅ .env file loaded successfully");
+    print("API_KEY loaded: ${dotenv.env['API_KEY']?.substring(0, 10)}..."); // Show first 10 chars only
+  } catch (e) {
+    print("❌ Error loading .env file: $e");
+    print("Error type: ${e.runtimeType}");
+  }
+
   runApp(const MyApp());
 }
 

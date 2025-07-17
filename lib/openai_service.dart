@@ -3,17 +3,25 @@ import 'package:http/http.dart' as http;
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 class OpenAIService {
-  static final String? _apiKey = dotenv.env['API_KEY'];
   static const String _baseUrl = 'https://api.openai.com/v1';
   static const String _model = 'gpt-3.5-turbo'; // or 'gpt-4'
 
+  // Get API key when needed, not at class initialization
+  static String? get _apiKey => dotenv.env['API_KEY'];
+
   Future<Map<String, dynamic>> analyzeLessonPlan(String lessonPlanText) async {
     try {
+      // Check if API key is available
+      final apiKey = _apiKey;
+      if (apiKey == null || apiKey.isEmpty) {
+        throw Exception('API key not found. Please check your .env file.');
+      }
+
       final response = await http.post(
         Uri.parse('$_baseUrl/chat/completions'),
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': 'Bearer $_apiKey',
+          'Authorization': 'Bearer $apiKey',
         },
         body: jsonEncode({
           'model': _model,
@@ -39,7 +47,7 @@ class OpenAIService {
         final responseData = jsonDecode(response.body);
         return jsonDecode(responseData['choices'][0]['message']['content']);
       } else {
-        throw Exception('API Error: ${response.statusCode}');
+        throw Exception('API Error: ${response.statusCode} - ${response.body}');
       }
     } catch (e) {
       throw Exception('Analysis failed: ${e.toString()}');

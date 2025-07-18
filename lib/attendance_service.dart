@@ -1,12 +1,12 @@
 import 'dart:convert';
 import 'dart:io';
-import 'dart:typed_data';
 import 'package:http/http.dart' as http;
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:path_provider/path_provider.dart';
+import 'package:open_file/open_file.dart';
 
 class AttendanceService {
   static const String _baseUrl = 'https://api.openai.com/v1';
@@ -24,12 +24,12 @@ class AttendanceService {
       final analysis = await _analyzeAttendanceText(extractedText);
       
       // Step 3: Generate PDF
-      final pdfPath = await _generateAttendancePDF(analysis);
+      final pdfFile = await _generateAttendancePDF(analysis);
       
       return {
         'success': true,
         'analysis': analysis,
-        'pdfPath': pdfPath,
+        'pdfFile': pdfFile,
         'extractedText': extractedText,
       };
     } catch (e) {
@@ -131,7 +131,7 @@ $attendanceText
 """;
   }
 
-  Future<String> _generateAttendancePDF(Map<String, dynamic> analysis) async {
+  Future<File> _generateAttendancePDF(Map<String, dynamic> analysis) async {
     try {
       final pdf = pw.Document();
       final students = analysis['students'] as List<dynamic>? ?? [];
@@ -288,9 +288,21 @@ $attendanceText
       final file = File('${directory.path}/attendance_analysis_$timestamp.pdf');
       await file.writeAsBytes(await pdf.save());
 
-      return file.path;
+      return file;
     } catch (e) {
       throw Exception('PDF generation failed: ${e.toString()}');
+    }
+  }
+
+  Future<void> openGeneratedPDF(File pdfFile) async {
+    try {
+      final result = await OpenFile.open(pdfFile.path);
+      
+      if (result.type != ResultType.done) {
+        throw Exception('Could not open file: ${result.message}');
+      }
+    } catch (e) {
+      throw Exception('Failed to open PDF: ${e.toString()}');
     }
   }
 

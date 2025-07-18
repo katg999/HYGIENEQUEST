@@ -178,9 +178,13 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
 
     if (result['success'] == true) {
       final analysis = result['analysis'] as Map<String, dynamic>;
-      final pdfPath = result['pdfPath'] as String;
+      final pdfFile = result['pdfFile'] as File;
       
-      _displayAttendanceResults(analysis, pdfPath);
+      // Display results
+      _displayAttendanceResults(analysis);
+      
+      // Open the PDF automatically
+      await _attendanceService.openGeneratedPDF(pdfFile);
     } else {
       _addBotMessage("❌ Error analyzing attendance register: ${result['error']}");
     }
@@ -196,7 +200,7 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
   }
 }
 
-void _displayAttendanceResults(Map<String, dynamic> analysis, String pdfPath) {
+void _displayAttendanceResults(Map<String, dynamic> analysis) {
   final summary = analysis['summary'] as Map<String, dynamic>? ?? {};
   final students = analysis['students'] as List<dynamic>? ?? [];
   final date = analysis['date'] as String? ?? 'Date not specified';
@@ -220,7 +224,7 @@ void _displayAttendanceResults(Map<String, dynamic> analysis, String pdfPath) {
     }
   }
 
-  _addBotMessage("📄 Analysis complete! PDF report generated at: $pdfPath");
+  _addBotMessage("📄 Analysis complete! The PDF report will open automatically.");
   _addBotMessage("What would you like to do next? 🤔");
 }
 

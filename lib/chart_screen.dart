@@ -498,11 +498,11 @@ void _displayAttendanceResults(Map<String, dynamic> analysis) {
     final pickedFile = await picker.pickImage(source: ImageSource.gallery);
 
     if (pickedFile == null) {
-      _addBotMessage("❌ No image selected. Please try again.");
+      _addBotMessage("❌ No Image selected. Please try again.");
       return;
     }
 
-    _addBotMessage("🕒 Uploading and analyzing your lesson plan... please wait.", showLoading: true);
+    _addBotMessage("🕒 Uploading and Analyzing Your Lesson plan... please wait.", showLoading: true);
 
     try {
       // First try to extract text locally

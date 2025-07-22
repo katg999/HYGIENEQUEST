@@ -4,7 +4,6 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:image_picker/image_picker.dart';
 import 'package:http_parser/http_parser.dart';
-import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';
 import './openai_service.dart';
 import './attendance_service.dart';
 import 'package:pdf/pdf.dart';
@@ -26,7 +25,7 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
   late AnimationController _animationController;
   late final OpenAIService _openAIService;
   late final AttendanceService _attendanceService;
-  final TextRecognizer _textRecognizer = TextRecognizer();
+
   
   int _step = 0;
   String _phoneNumber = '';
@@ -67,7 +66,6 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
     _controller.dispose();
     _scrollController.dispose();
     _attendanceService.dispose();
-    _textRecognizer.close();
     super.dispose();
   }
 
@@ -510,27 +508,23 @@ void _displayAttendanceResults(Map<String, dynamic> analysis) {
     _isLoading = true;
   });
 
-  _addBotMessage("🕒 Analyzing your lesson plan...", showLoading: true);
+  _addBotMessage("🕒 Analyzing your lesson plan with OpenAI...", showLoading: true);
 
   try {
-    // Extract text from image
-    final originalText = await _extractTextFromImage(File(pickedFile.path));
+    // Send image directly to OpenAI
+    final analysis = await _openAIService.analyzeLessonPlanImage(File(pickedFile.path));
     
-    // Send to OpenAI for analysis
-    final analysis = await _openAIService.analyzeLessonPlan(originalText);
-    
-    // Generate PDF with improved content only
+    // Generate PDF with improved content
     final pdfFile = await _generateLessonPlanPDF(analysis: analysis);
     
-    // Display brief results in chat
+    // Display results
     _addBotMessage("✅ Lesson plan improved successfully!");
     _addBotMessage("Quality Score: ${analysis['score'] ?? "N/A"}/100");
     
-    // Open the PDF automatically
+    // Open the PDF
     await OpenFile.open(pdfFile.path);
     
-    _addBotMessage("📄 The improved lesson plan PDF has been generated and opened.");
-    
+    _addBotMessage("📄 The improved lesson plan PDF has been opened.");
   } catch (e) {
     _addBotMessage("❌ Error processing lesson plan: ${e.toString()}");
   } finally {
@@ -604,17 +598,7 @@ Future<File> _generateLessonPlanPDF({
 
   return file;
 }
-  Future<String> _extractTextFromImage(File imageFile) async {
-    try {
-      final inputImage = InputImage.fromFile(imageFile);
-      final recognizedText = await _textRecognizer.processImage(inputImage);
-      return recognizedText.text;
-    } catch (e) {
-      _addBotMessage("⚠️ Couldn't read text from image. Sending image directly for analysis.");
-      rethrow;
-    }
-  }
-
+ 
  
 
   Future<void> _submitLessonPlanToBackend(XFile pickedFile) async {

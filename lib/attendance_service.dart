@@ -2,7 +2,6 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:http/http.dart' as http;
 import 'package:flutter_dotenv/flutter_dotenv.dart';
-import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:path_provider/path_provider.dart';
@@ -11,125 +10,93 @@ import 'package:open_file/open_file.dart';
 class AttendanceService {
   static const String _baseUrl = 'https://api.openai.com/v1';
   static const String _model = 'gpt-3.5-turbo';
-  final TextRecognizer _textRecognizer = TextRecognizer();
   
   static String? get _apiKey => dotenv.env['API_KEY'];
 
   Future<Map<String, dynamic>> processAttendanceRegister(File imageFile) async {
-    try {
-      // Step 1: Extract text from image
-      final extractedText = await _extractTextFromImage(imageFile);
-      
-      // Step 2: Analyze with OpenAI
-      final analysis = await _analyzeAttendanceText(extractedText);
-      
-      // Step 3: Generate PDF
-      final pdfFile = await _generateAttendancePDF(analysis);
-      
-      return {
-        'success': true,
-        'analysis': analysis,
-        'pdfFile': pdfFile,
-        'extractedText': extractedText,
-      };
-    } catch (e) {
-      return {
-        'success': false,
-        'error': e.toString(),
-      };
-    }
+  try {
+    // Step 1: Send image directly to OpenAI for analysis
+    final analysis = await _analyzeAttendanceImage(imageFile);
+    
+    // Step 2: Generate PDF
+    final pdfFile = await _generateAttendancePDF(analysis);
+    
+    return {
+      'success': true,
+      'analysis': analysis,
+      'pdfFile': pdfFile,
+    };
+  } catch (e) {
+    return {
+      'success': false,
+      'error': e.toString(),
+    };
   }
-
-  Future<String> _extractTextFromImage(File imageFile) async {
-    try {
-      final inputImage = InputImage.fromFile(imageFile);
-      final recognizedText = await _textRecognizer.processImage(inputImage);
-      return recognizedText.text;
-    } catch (e) {
-      throw Exception('Failed to extract text from image: ${e.toString()}');
-    }
-  }
-
-  Future<Map<String, dynamic>> _analyzeAttendanceText(String attendanceText) async {
-    try {
-      final apiKey = _apiKey;
-      if (apiKey == null || apiKey.isEmpty) {
-        throw Exception('API key not found. Please check your .env file.');
-      }
-
-      final response = await http.post(
-        Uri.parse('$_baseUrl/chat/completions'),
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer $apiKey',
-        },
-        body: jsonEncode({
-          'model': _model,
-          'messages': [
-            {
-              'role': 'system',
-              'content': 'You are an expert in analyzing Ugandan school attendance registers. '
-                  'Extract student names and absence reasons from the text. '
-                  'Return JSON with: students (array of {name, status, reason}), '
-                  'summary (object with present_count, absent_count, total_count), '
-                  'date (extracted date or null).'
-            },
-            {
-              'role': 'user',
-              'content': _buildAttendancePrompt(attendanceText)
-            }
-          ],
-          'response_format': {'type': 'json_object'},
-          'temperature': 0.1,
-          'max_tokens': 2000,
-        }),
-      );
-
-      if (response.statusCode == 200) {
-        final responseData = jsonDecode(response.body);
-        return jsonDecode(responseData['choices'][0]['message']['content']);
-      } else {
-        throw Exception('OpenAI API Error: ${response.statusCode} - ${response.body}');
-      }
-    } catch (e) {
-      throw Exception('Analysis failed: ${e.toString()}');
-    }
-  }
-
-  String _buildAttendancePrompt(String attendanceText) {
-    return """
-Analyze this Ugandan school attendance register and extract information:
-
-Return JSON format:
-{
-  "students": [
-    {
-      "name": "Student Name",
-      "status": "present" or "absent",
-      "reason": "reason for absence or null if present"
-    }
-  ],
-  "summary": {
-    "present_count": number,
-    "absent_count": number,
-    "total_count": number
-  },
-  "date": "extracted date or null",
-  "class_info": "class/grade information if available"
 }
 
-Rules:
-- Extract all student names clearly
-- Identify present/absent status
-- Extract absence reasons (sick, permission, etc.)
-- Count totals accurately
-- Handle common Ugandan names properly
-- Look for date information
+  
 
-Attendance Register Text:
-$attendanceText
-""";
+  Future<Map<String, dynamic>> _analyzeAttendanceImage(File imageFile) async {
+  try {
+    final apiKey = _apiKey;
+    if (apiKey == null || apiKey.isEmpty) {
+      throw Exception('API key not found. Please check your .env file.');
+    }
+
+    final bytes = await imageFile.readAsBytes();
+    final base64Image = base64Encode(bytes);
+
+    final response = await http.post(
+      Uri.parse('$_baseUrl/chat/completions'),
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $apiKey',
+      },
+      body: jsonEncode({
+        'model': 'gpt-4.1',
+        'messages': [
+          {
+            'role': 'system',
+            'content': 'You are an expert in analyzing Ugandan school attendance registers. '
+                'Extract student names and absence reasons from the image. '
+                'Return JSON with: students (array of {name, status, reason}), '
+                'summary (object with present_count, absent_count, total_count), '
+                'date (extracted date or null).'
+          },
+          {
+            'role': 'user',
+            'content': [
+              {
+                'type': 'text',
+                'text': 'Analyze this Ugandan school attendance register image. '
+                    'Extract all student names, present/absent status, and absence reasons. '
+                    'Also identify the date if visible.'
+              },
+              {
+                'type': 'image_url',
+                'image_url': {
+                  'url': 'data:image/jpeg;base64,$base64Image'
+                }
+              }
+            ]
+          }
+        ],
+        'response_format': {'type': 'json_object'},
+        'temperature': 0.1,
+        'max_tokens': 2000,
+      }),
+    );
+
+    if (response.statusCode == 200) {
+      final responseData = jsonDecode(response.body);
+      return jsonDecode(responseData['choices'][0]['message']['content']);
+    } else {
+      throw Exception('OpenAI API Error: ${response.statusCode} - ${response.body}');
+    }
+  } catch (e) {
+    throw Exception('Image analysis failed: ${e.toString()}');
   }
+}
 
   Future<File> _generateAttendancePDF(Map<String, dynamic> analysis) async {
     try {
@@ -317,6 +284,6 @@ $attendanceText
   }
 
   void dispose() {
-    _textRecognizer.close();
+  
   }
 }

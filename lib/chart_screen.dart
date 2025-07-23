@@ -26,6 +26,8 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
   late final OpenAIService _openAIService;
   late final AttendanceService _attendanceService;
 
+  Map<String, dynamic>? _currentAttendanceAnalysis;
+
   
   int _step = 0;
   String _phoneNumber = '';
@@ -84,66 +86,71 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
     _scrollToBottom();
 
     switch (_step) {
-      case 0:
-        if (_isValidPhoneNumber(input)) {
-          _phoneNumber = input;
-          _checkRegistrationStatus();
-        } else {
-          _addBotMessage("Please enter a valid phone number (e.g., +256701234567 or 0701234567). ❌");
-        }
-        break;
-      case 1:
-        if (input.trim().length >= 2) {
-          _fullName = input;
-          _addBotMessage("Nice to meet you, $_fullName! 😊");
-          _addBotMessage("Which school do you teach at? 🏫");
-          _step++;
-        } else {
-          _addBotMessage("Please enter your full name (at least 2 characters). ❌");
-        }
-        break;
-      case 2:
-        if (input.trim().length >= 2) {
-          _school = input;
-          _addBotMessage("Great! $_school sounds like a wonderful place to teach. 🌟");
-          _addBotMessage("In which district is your school located? 📍");
-          _step++;
-        } else {
-          _addBotMessage("Please enter your school name (at least 2 characters). ❌");
-        }
-        break;
-      case 3:
-        if (input.trim().length >= 2) {
-          _district = input;
-          _addBotMessage("Perfect! Now, what is your preferred language of response? 🗣️");
-          _step++;
-        } else {
-          _addBotMessage("Please enter your district name (at least 2 characters). ❌");
-        }
-        break;
-      case 4:
-        // This step is handled with buttons below
-        break;
-      case 5:
-        _sendOtp();
-        break;
-      case 6:
-        if (input.length == 6 && input.contains(RegExp(r'^\d+$'))) {
-          _otp = input;
-          _verifyOtp();
-        } else {
-          _addBotMessage("Please enter a valid 6-digit OTP. ❌");
-        }
-        break;
-      case 7:
-        _addBotMessage("Please select an option from the menu below. 👇");
-        break;
-      case 8: // Attendance submission flow
-        _handleAttendanceInput(input);
-        break;
-      default:
-        _addBotMessage("I received: $input ✅");
+  case 0:
+    if (_isValidPhoneNumber(input)) {
+      _phoneNumber = input;
+      _checkRegistrationStatus();
+    } else {
+      _addBotMessage("Please enter a valid phone number (e.g., +256701234567 or 0701234567). ❌");
     }
+    break;
+  case 1:
+    if (input.trim().length >= 2) {
+      _fullName = input;
+      _addBotMessage("Nice to meet you, $_fullName! 😊");
+      _addBotMessage("Which school do you teach at? 🏫");
+      _step++;
+    } else {
+      _addBotMessage("Please enter your full name (at least 2 characters). ❌");
+    }
+    break;
+  case 2:
+    if (input.trim().length >= 2) {
+      _school = input;
+      _addBotMessage("Great! $_school sounds like a wonderful place to teach. 🌟");
+      _addBotMessage("In which district is your school located? 📍");
+      _step++;
+    } else {
+      _addBotMessage("Please enter your school name (at least 2 characters). ❌");
+    }
+    break;
+  case 3:
+    if (input.trim().length >= 2) {
+      _district = input;
+      _addBotMessage("Perfect! Now, what is your preferred language of response? 🗣️");
+      _step++;
+    } else {
+      _addBotMessage("Please enter your district name (at least 2 characters). ❌");
+    }
+    break;
+  case 4:
+    // This step is handled with buttons below
+    break;
+  case 5:
+    _sendOtp();
+    break;
+  case 6:
+    if (input.length == 6 && input.contains(RegExp(r'^\d+$'))) {
+      _otp = input;
+      _verifyOtp();
+    } else {
+      _addBotMessage("Please enter a valid 6-digit OTP. ❌");
+    }
+    break;
+  case 7:
+    _addBotMessage("Please select an option from the menu below. 👇");
+    break;
+  case 9: // Attendance topic input
+    if (input.trim().length >= 3) {
+      _topicCovered = input;
+      _submitAttendance(_currentAttendanceAnalysis!);
+    } else {
+      _addBotMessage("Please enter the topic you covered (at least 3 characters). ❌");
+    }
+    break;
+  default:
+    _addBotMessage("I received: $input ✅");
+}
 
     _controller.clear();
   }
@@ -184,6 +191,15 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
       
       // Display results
       _displayAttendanceResults(analysis);
+      
+      // Ask for topic covered
+      _addBotMessage("What topic did you cover today?\n\nFor example: \"Algebraic Equations\" or \"Hand Washing Techniques\" 📚");
+      
+      // Store analysis for later submission
+      _currentAttendanceAnalysis = analysis;
+      
+      // Set step to wait for topic input
+      _step = 9; // New step for attendance topic input
       
       // Open the PDF automatically
       await _attendanceService.openGeneratedPDF(pdfFile);
@@ -302,48 +318,7 @@ void _displayAttendanceResults(Map<String, dynamic> analysis) {
     }
   }
 
-  void _handleAttendanceInput(String input) {
-    switch (_attendanceStep) {
-      case 0:
-        if (_isValidNumber(input)) {
-          _presentStudents = input;
-          _addBotMessage("Got it! $_presentStudents students were present. 👥");
-          _addBotMessage("How many students were absent? 🤔");
-          _attendanceStep++;
-        } else {
-          _addBotMessage("Please enter a valid number of students. ❌");
-        }
-        break;
-      case 1:
-        if (_isValidNumber(input)) {
-          _absentStudents = input;
-          _addBotMessage("I see, $_absentStudents students were absent. 📝");
-          _addBotMessage("Please briefly explain the reasons for absence.\n\nFor example: \"2 students sick with flu, 1 student had family emergency\" 🏥");
-          _attendanceStep++;
-        } else {
-          _addBotMessage("Please enter a valid number of absent students. ❌");
-        }
-        break;
-      case 2:
-        if (input.trim().length >= 5) {
-          _absenceReasons = input;
-          _addBotMessage("Thank you for the explanation. 📋");
-          _addBotMessage("What topic did you cover today?\n\nFor example: \"Algebraic Equations\" or \"Hand Washing Techniques\" 📚");
-          _attendanceStep++;
-        } else {
-          _addBotMessage("Please provide a more detailed explanation (at least 5 characters). ❌");
-        }
-        break;
-      case 3:
-        if (input.trim().length >= 3) {
-          _topicCovered = input;
-          _submitAttendance();
-        } else {
-          _addBotMessage("Please enter the topic you covered (at least 3 characters). ❌");
-        }
-        break;
-    }
-  }
+
 
   bool _isValidNumber(String input) {
     final number = int.tryParse(input);
@@ -456,44 +431,52 @@ void _displayAttendanceResults(Map<String, dynamic> analysis) {
     }
   }
 
-  Future<void> _submitAttendance() async {
-    setState(() {
-      _isLoading = true;
-    });
+  Future<void> _submitAttendance(Map<String, dynamic> analysis) async {
+  setState(() {
+    _isLoading = true;
+  });
+  
+  final summary = analysis['summary'] as Map<String, dynamic>? ?? {};
+  final students = analysis['students'] as List<dynamic>? ?? [];
+  
+  _addBotMessage("Submitting your attendance report... 📊", showLoading: true);
+  
+  try {
+    // Count absent students with reasons
+    final absentStudents = students.where((s) => s['status'] == 'absent').toList();
+    final absenceReasons = absentStudents.map((s) => 
+      "${s['name']}: ${s['reason'] ?? 'No reason specified'}"
+    ).join(", ");
     
-    _addBotMessage("Submitting your attendance report... 📊", showLoading: true);
-    
-    try {
-      final response = await http.post(
-        Uri.parse('$_baseUrl/attendance'),
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({
-          'phone': _phoneNumber,
-          'students_present': int.tryParse(_presentStudents) ?? 0,
-          'students_absent': int.tryParse(_absentStudents) ?? 0,
-          'absence_reason': _absenceReasons,
-          'topic_covered': _topicCovered,
-        }),
-      );
+    final response = await http.post(
+      Uri.parse('$_baseUrl/attendance'),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({
+        'phone': _phoneNumber,
+        'students_present': summary['present_count'] ?? 0,
+        'students_absent': summary['absent_count'] ?? 0,
+        'absence_reason': absenceReasons,
+        'topic_covered': _topicCovered,
+      }),
+    );
 
-      if (response.statusCode == 201) {
-        _addBotMessage("🎉 Perfect! Your class report has been submitted successfully.");
-        _addBotMessage("📋 Summary:\n• Present: $_presentStudents students\n• Absent: $_absentStudents students\n• Topic: $_topicCovered");
-        _addBotMessage("What would you like to do next? 🤔");
-        _step = 7; // Return to main menu
-        _attendanceStep = 0; // Reset attendance step
-      } else {
-        final error = jsonDecode(response.body)['detail'] ?? 'Attendance submission failed';
-        _addBotMessage("❌ Error: $error");
-      }
-    } catch (e) {
-      _addBotMessage("❌ Error: Failed to connect to the server. Please try again.");
-    } finally {
-      setState(() {
-        _isLoading = false;
-      });
+    if (response.statusCode == 201) {
+      _addBotMessage("🎉 Perfect! Your class report has been submitted successfully.");
+      _addBotMessage("📋 Summary:\n• Present: ${summary['present_count'] ?? 0} students\n• Absent: ${summary['absent_count'] ?? 0} students\n• Topic: $_topicCovered");
+      _addBotMessage("What would you like to do next? 🤔");
+      _step = 7; // Return to main menu
+    } else {
+      final error = jsonDecode(response.body)['detail'] ?? 'Attendance submission failed';
+      _addBotMessage("❌ Error: $error");
     }
+  } catch (e) {
+    _addBotMessage("❌ Error: Failed to connect to the server. Please try again.");
+  } finally {
+    setState(() {
+      _isLoading = false;
+    });
   }
+}
 
   Future<void> _pickAndSubmitLessonPlan() async {
   final picker = ImagePicker();
@@ -669,11 +652,10 @@ Future<File> _generateLessonPlanPDF({
 
     switch (selection) {
       case 'Submit Attendance':
-        _addBotMessage("Hello $_fullName! 👋 Let's record today's class attendance.");
-        _addBotMessage("How many students were present in your class today? 👥");
-        _step = 8; // Move to attendance flow
-        _attendanceStep = 0;
-        break;
+           _addBotMessage("Hello $_fullName! 👋 Let's record today's class attendance.");
+           _addBotMessage("Please upload a photo of your attendance register. 📸");
+           _pickAndAnalyzeAttendanceRegister(); // This will trigger the image picker
+         break;
       case 'Submit Lesson Plan':
         _addBotMessage("📚 Let's analyze your lesson plan!");
         _addBotMessage("📸 Please share your lesson plan (image of your handwritten plan).");

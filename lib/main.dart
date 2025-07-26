@@ -9,7 +9,7 @@ Future<void> main() async {
   try {
     await dotenv.load(fileName: ".env");
     print("✅ .env file loaded successfully");
-    print("API_KEY loaded: ${dotenv.env['API_KEY']?.substring(0, 10)}..."); // Show first 10 chars only
+    print("API_KEY loaded: ${dotenv.env['API_KEY']?.substring(0, 10)}..."); 
   } catch (e) {
     print("❌ Error loading .env file: $e");
     print("Error type: ${e.runtimeType}");

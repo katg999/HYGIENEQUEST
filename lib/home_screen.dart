@@ -110,7 +110,7 @@ class HomeScreen extends StatelessWidget {
                       ),
                       const SizedBox(height: 12),
                       Text(
-                        "I'm here to make learning about hygiene fun and interactive! Ready to explore the world of cleanliness and healthy habits? 🧼✨",
+                        "I'm here to make learning about hygiene fun and interactive! Ready to explore the world of  healthy habits? 🧼✨",
                         style: TextStyle(
                           fontSize: 16,
                           color: Colors.grey[700],

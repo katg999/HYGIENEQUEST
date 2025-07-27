@@ -111,7 +111,7 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
       _addBotMessage("In which district is your school located? 📍");
       _step++;
     } else {
-      _addBotMessage("Please enter your school name (at least 2 characters). ❌");
+      _addBotMessage("Please enter your school name. ❌");
     }
     break;
   case 3:
@@ -120,7 +120,7 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
       _addBotMessage("Perfect! Now, what is your preferred language of response? 🗣️");
       _step++;
     } else {
-      _addBotMessage("Please enter your district name (at least 2 characters). ❌");
+      _addBotMessage("Please enter your district name. ❌");
     }
     break;
   case 4:

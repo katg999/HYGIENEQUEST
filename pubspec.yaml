@@ -23,6 +23,7 @@ dependencies:
   flutter:
     sdk: flutter
   cupertino_icons: ^1.0.8
+  flutter_native_splash: ^2.4.6
 
 dev_dependencies:
   flutter_test:
@@ -39,6 +40,22 @@ flutter_launcher_icons:
 flutter:
   uses-material-design: true
 
+  fonts:
+    - family: Bricolage Grotesque
+      fonts:
+        - asset: assets/fonts/BricolageGrotesque-VariableFont_opsz,wdth,wght.ttf
+
+    - family: Geist
+      fonts:
+        - asset: assets/fonts/Geist-VariableFont_wght.ttf
+
+
   assets:
     - assets/images/HygieneQuest.jpeg
     - .env
+    - assets/images/Dettol.png
+    - assets/images/Logo.png
+    - assets/images/Group6.png
+    - assets/images/Group7.png
+    - assets/images/Group8.png
+    - assets/images/Keti.png

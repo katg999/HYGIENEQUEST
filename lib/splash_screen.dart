@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:appbot/home_screen.dart';
 import 'onboard_screening.dart';
 
-
 class SplashScreen extends StatefulWidget {
   const SplashScreen({Key? key}) : super(key: key);
 
@@ -29,6 +28,7 @@ class _SplashScreenState extends State<SplashScreen> {
     return Scaffold(
       backgroundColor: const Color(0xFF007A33),
       body: SafeArea(
+        bottom: false, // Allow content to extend to bottom
         child: Column(
           children: [
             // Main logo centered in the middle of the screen

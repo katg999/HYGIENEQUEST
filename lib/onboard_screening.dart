@@ -57,7 +57,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
             ),
             if (_currentPage < onboardingData.length - 1)
               Positioned(
-                top: 16,
+                top: MediaQuery.of(context).padding.top + 20, // Responsive to status bar
                 right: 20,
                 child: GestureDetector(
                   onTap: () {
@@ -106,9 +106,12 @@ class OnboardingPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final screenHeight = MediaQuery.of(context).size.height;
+    
     return Column(
       children: [
-        const SizedBox(height: 60),
+        // Dynamic spacing based on screen height to ensure proper positioning
+        SizedBox(height: screenHeight * 0.15), // 15% of screen height for top spacing
         Center(
           child: Image.asset(
             imagePath,
@@ -125,8 +128,8 @@ class OnboardingPage extends StatelessWidget {
             width: double.infinity,
             margin: const EdgeInsets.symmetric(horizontal: 0), // Remove horizontal margin
             padding: const EdgeInsets.only(
-              top: 40, // Extra padding at top for Keti image
-              bottom: 20,
+              top: 50, // Increased padding for better spacing
+              bottom: 30, // Increased bottom padding
               left: 20,
               right: 20,
             ),
@@ -139,9 +142,9 @@ class OnboardingPage extends StatelessWidget {
             child: Column(
               children: [
                 // Position Keti image in the curved area
-                Positioned(
-                  top: -20, // Half inside the white area
-                  child: Center(
+                Center(
+                  child: Transform.translate(
+                    offset: const Offset(0, -25), // Move Keti image further up into the curve
                     child: Image.asset(
                       'assets/images/Keti.png',
                       height: 80,
@@ -149,7 +152,7 @@ class OnboardingPage extends StatelessWidget {
                     ),
                   ),
                 ),
-                const SizedBox(height: 40), // Extra space after Keti image
+                const SizedBox(height: 35), // Adjusted spacing after Keti image
                 Text(
                   title,
                   textAlign: TextAlign.center,

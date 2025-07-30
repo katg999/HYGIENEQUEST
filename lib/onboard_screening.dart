@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'chart_screen.dart';
 
 class OnboardingScreen extends StatefulWidget {
   const OnboardingScreen({super.key});
@@ -15,17 +16,17 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     {
       'mainImage': 'assets/images/Group6.png',
       'title': 'Get instant feedback\non your lesson plan',
-      'description': 'Upload your lesson plans and get instant AI feedback to enhance your teaching.',
+      'description': 'Upload your lesson plans and get instant\nAI feedback to enhance your teaching.',
     },
     {
       'mainImage': 'assets/images/Group7.png',
       'title': 'Easily upload your\nclass attendance',
-      'description': 'Track student attendance and get insights on class participation trends.',
+      'description': 'Track student attendance and get insights\non class participation trends.',
     },
     {
       'mainImage': 'assets/images/Group8.png',
       'title': 'Shop essential\nhygiene products',
-      'description': 'Browse and purchase quality hygiene Dettol products for your classroom.',
+      'description': 'Browse and purchase quality hygiene\nDettol products for your classroom.',
     },
   ];
 
@@ -34,6 +35,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     return Scaffold(
       backgroundColor: const Color(0xFF007A33),
       body: SafeArea(
+        bottom: false,
         child: Stack(
           children: [
             PageView.builder(
@@ -57,11 +59,10 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
             ),
             if (_currentPage < onboardingData.length - 1)
               Positioned(
-                top: MediaQuery.of(context).padding.top + 20, // Responsive to status bar
+                top: 16,
                 right: 20,
                 child: GestureDetector(
                   onTap: () {
-                    // Changed from jumpToPage to animateToPage for smooth transition
                     _controller.animateToPage(
                       _currentPage + 1,
                       duration: const Duration(milliseconds: 300),
@@ -107,142 +108,192 @@ class OnboardingPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final screenHeight = MediaQuery.of(context).size.height;
+    final topHeight = screenHeight * 0.5; // Top 50% for green background and image
     
-    return Column(
+    return Stack(
       children: [
-        // Dynamic spacing based on screen height to ensure proper positioning
-        SizedBox(height: screenHeight * 0.15), // 15% of screen height for top spacing
-        Center(
-          child: Image.asset(
-            imagePath,
-            height: 250,
-            errorBuilder: (context, error, stackTrace) => const Icon(Icons.error),
-          ),
+        // Green background for top portion
+        Container(
+          height: topHeight,
+          color: const Color(0xFF007A33),
         ),
-        const Spacer(),
-        ClipRRect(
-          borderRadius: const BorderRadius.vertical(
-            top: Radius.circular(40), // More oval shape at top
-          ),
+        // White background for bottom portion - extends to very bottom
+        Positioned(
+          top: topHeight - 10, // Start 10px higher to create overlap for border radius
+          left: 0,
+          right: 0,
+          bottom: 0,
           child: Container(
-            width: double.infinity,
-            margin: const EdgeInsets.symmetric(horizontal: 0), // Remove horizontal margin
-            padding: const EdgeInsets.only(
-              top: 50, // Increased padding for better spacing
-              bottom: 30, // Increased bottom padding
-              left: 20,
-              right: 20,
-            ),
             decoration: const BoxDecoration(
               color: Colors.white,
-              borderRadius: BorderRadius.vertical(
-                top: Radius.circular(40),
+              borderRadius: BorderRadius.only(
+                topLeft: Radius.circular(150),
+                topRight: Radius.circular(150),
               ),
             ),
-            child: Column(
-              children: [
-                // Position Keti image in the curved area
-                Center(
-                  child: Transform.translate(
-                    offset: const Offset(0, -25), // Move Keti image further up into the curve
-                    child: Image.asset(
-                      'assets/images/Keti.png',
-                      height: 80,
-                      errorBuilder: (context, error, stackTrace) => const Icon(Icons.error),
+          ),
+        ),
+        // Keti image positioned at the center of the circular border
+        Positioned(
+          top: topHeight -40, // Position to center on the circular border
+          left: 40,
+          right: 5,
+          child: Center(
+            child: Container(
+              width: 100,
+              height: 100,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.0),
+                    blurRadius: 10,
+                    offset: const Offset(0, 5),
+                  ),
+                ],
+              ),
+              child: ClipRRect(
+                child: Image.asset(
+                  'assets/images/Keti.png',
+                  width: 150,
+                  height: 150,
+                  fit: BoxFit.cover,
+                  errorBuilder: (context, error, stackTrace) => Container(
+                    width: 50,
+                    height: 50,
+                    decoration: const BoxDecoration(
+                      color: Colors.grey,
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(
+                      Icons.person,
+                      size: 60,
+                      color: Colors.white,
                     ),
                   ),
                 ),
-                const SizedBox(height: 35), // Adjusted spacing after Keti image
-                Text(
-                  title,
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(
-                    fontFamily: 'Bricolage Grotesque',
-                    fontSize: 27,
-                    fontWeight: FontWeight.w600,
-                    height: 1.2,
-                    letterSpacing: -0.01,
-                    color: Color(0xFF020617), // Changed to #020617
-                  ),
-                ),
-                const SizedBox(height: 12),
-                Text(
-                  description,
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(
-                    fontFamily: 'Geist',
-                    fontSize: 15,
-                    fontWeight: FontWeight.w400,
-                    height: 1.3,
-                    color: Colors.black87,
-                  ),
-                ),
-                const SizedBox(height: 20),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: List.generate(
-                    totalPages,
-                    (index) => Container(
-                      margin: const EdgeInsets.symmetric(horizontal: 4),
-                      width: 10,
-                      height: 10,
-                      decoration: BoxDecoration(
-                        color: index == currentPage
-                            ? const Color(0xFF007A33)
-                            : const Color(0xFFB5B5B5),
-                        shape: BoxShape.circle,
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 20),
-                ElevatedButton(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF007A33),
-                    foregroundColor: Colors.white,
-                    minimumSize: const Size.fromHeight(48),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    textStyle: const TextStyle(
-                      fontFamily: 'Geist',
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  onPressed: () {
-                    // Handle Sign Up
-                  },
-                  child: const Text('Sign Up'),
-                ),
-                const SizedBox(height: 12),
-                GestureDetector(
-                  onTap: () {
-                    // Handle Login
-                  },
-                  child: const Text.rich(
-                    TextSpan(
-                      text: 'Already have an account? ',
-                      style: TextStyle(
-                        fontSize: 14,
-                        color: Color(0xFF007A33),
-                        fontFamily: 'Geist',
-                      ),
-                      children: [
-                        TextSpan(
-                          text: 'Login',
-                          style: TextStyle(
-                            fontWeight: FontWeight.bold,
-                            color: Color(0xFF007A33),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ],
+              ),
             ),
           ),
+        ),
+        // Content
+        Column(
+          children: [
+            const SizedBox(height: 130),
+            Center(
+              child: Image.asset(
+                imagePath,
+                height: 280,
+                errorBuilder: (context, error, stackTrace) => const Icon(Icons.error),
+              ),
+            ),
+            Expanded(
+              child: Container(
+                width: double.infinity,
+                margin: const EdgeInsets.only(top: 40),
+                padding: const EdgeInsets.only(
+                  top: 80, // Increased top padding to account for Keti image
+                  left: 24,
+                  right: 24,
+                  bottom: 40,
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      title,
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(
+                        fontFamily: 'Bricolage Grotesque',
+                        fontSize: 24,
+                        fontWeight: FontWeight.w600,
+                        height: 1.3,
+                        color: Color(0xFF020617),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    Text(
+                      description,
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(
+                        fontFamily: 'Geist',
+                        fontSize: 16,
+                        fontWeight: FontWeight.w400,
+                        height: 1.5,
+                        color: Colors.black87,
+                      ),
+                    ),
+                    const SizedBox(height: 32),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: List.generate(
+                        totalPages,
+                        (index) => Container(
+                          margin: const EdgeInsets.symmetric(horizontal: 4),
+                          width: 8,
+                          height: 8,
+                          decoration: BoxDecoration(
+                            color: index == currentPage
+                                ? const Color(0xFF007A33)
+                                : const Color(0xFFB5B5B5),
+                            shape: BoxShape.circle,
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 32),
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF007A33),
+                          foregroundColor: Colors.white,
+                          minimumSize: const Size.fromHeight(50),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          textStyle: const TextStyle(
+                            fontFamily: 'Geist',
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        onPressed: () {
+                          // Handle Sign Up
+                        },
+                        child: const Text('Sign Up'),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    GestureDetector(
+                      onTap: () {
+                        // Handle Login
+                      },
+                      child: const Text.rich(
+                        TextSpan(
+                          text: 'Already have an account? ',
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: Color(0xFF007A33),
+                            fontFamily: 'Geist',
+                          ),
+                          children: [
+                            TextSpan(
+                              text: 'Login',
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                color: Color(0xFF007A33),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
         ),
       ],
     );

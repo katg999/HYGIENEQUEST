@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'chart_screen.dart';
+import 'register_screen.dart';
+import 'login_screen.dart';
 
 class OnboardingScreen extends StatefulWidget {
   const OnboardingScreen({super.key});
@@ -108,7 +110,7 @@ class OnboardingPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final screenHeight = MediaQuery.of(context).size.height;
-    final topHeight = screenHeight * 0.5; // Top 50% for green background and image
+    final topHeight = screenHeight * 0.45; // Slightly reduced from 0.5 to 0.45
     
     return Stack(
       children: [
@@ -135,9 +137,9 @@ class OnboardingPage extends StatelessWidget {
         ),
         // Keti image positioned at the center of the circular border
         Positioned(
-          top: topHeight -40, // Position to center on the circular border
-          left: 40,
-          right: 5,
+          top: topHeight - 40, // Position to center on the circular border
+          left: 0,
+          right: 0,
           child: Center(
             child: Container(
               width: 100,
@@ -179,117 +181,131 @@ class OnboardingPage extends StatelessWidget {
         // Content
         Column(
           children: [
-            const SizedBox(height: 130),
+            SizedBox(height: screenHeight * 0.12), // Reduced from fixed 130 to dynamic
             Center(
               child: Image.asset(
                 imagePath,
-                height: 280,
+                height: screenHeight * 0.25, // Reduced from fixed 280 to dynamic
                 errorBuilder: (context, error, stackTrace) => const Icon(Icons.error),
               ),
             ),
             Expanded(
-              child: Container(
-                width: double.infinity,
-                margin: const EdgeInsets.only(top: 40),
-                padding: const EdgeInsets.only(
-                  top: 80, // Increased top padding to account for Keti image
-                  left: 24,
-                  right: 24,
-                  bottom: 40,
-                ),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      title,
-                      textAlign: TextAlign.center,
-                      style: const TextStyle(
-                        fontFamily: 'Bricolage Grotesque',
-                        fontSize: 24,
-                        fontWeight: FontWeight.w600,
-                        height: 1.3,
-                        color: Color(0xFF020617),
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    Text(
-                      description,
-                      textAlign: TextAlign.center,
-                      style: const TextStyle(
-                        fontFamily: 'Geist',
-                        fontSize: 16,
-                        fontWeight: FontWeight.w400,
-                        height: 1.5,
-                        color: Colors.black87,
-                      ),
-                    ),
-                    const SizedBox(height: 32),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: List.generate(
-                        totalPages,
-                        (index) => Container(
-                          margin: const EdgeInsets.symmetric(horizontal: 4),
-                          width: 8,
-                          height: 8,
-                          decoration: BoxDecoration(
-                            color: index == currentPage
-                                ? const Color(0xFF007A33)
-                                : const Color(0xFFB5B5B5),
-                            shape: BoxShape.circle,
-                          ),
+              child: SingleChildScrollView( // Added SingleChildScrollView to handle overflow
+                child: Container(
+                  width: double.infinity,
+                  margin: const EdgeInsets.only(top: 40),
+                  padding: const EdgeInsets.only(
+                    top: 80, // Increased top padding to account for Keti image
+                    left: 24,
+                    right: 24,
+                    bottom: 20, // Reduced bottom padding
+                  ),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        title,
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(
+                          fontFamily: 'Bricolage Grotesque',
+                          fontSize: 24,
+                          fontWeight: FontWeight.w600,
+                          height: 1.3,
+                          color: Color(0xFF020617),
                         ),
                       ),
-                    ),
-                    const SizedBox(height: 32),
-                    SizedBox(
-                      width: double.infinity,
-                      child: ElevatedButton(
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF007A33),
-                          foregroundColor: Colors.white,
-                          minimumSize: const Size.fromHeight(50),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          textStyle: const TextStyle(
-                            fontFamily: 'Geist',
-                            fontSize: 16,
-                            fontWeight: FontWeight.w600,
-                          ),
+                      const SizedBox(height: 16),
+                      Text(
+                        description,
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(
+                          fontFamily: 'Geist',
+                          fontSize: 16,
+                          fontWeight: FontWeight.w400,
+                          height: 1.5,
+                          color: Colors.black87,
                         ),
-                        onPressed: () {
-                          // Handle Sign Up
-                        },
-                        child: const Text('Sign Up'),
                       ),
-                    ),
-                    const SizedBox(height: 16),
-                    GestureDetector(
-                      onTap: () {
-                        // Handle Login
-                      },
-                      child: const Text.rich(
-                        TextSpan(
-                          text: 'Already have an account? ',
-                          style: TextStyle(
-                            fontSize: 14,
-                            color: Color(0xFF007A33),
-                            fontFamily: 'Geist',
-                          ),
-                          children: [
-                            TextSpan(
-                              text: 'Login',
-                              style: TextStyle(
-                                fontWeight: FontWeight.bold,
-                                color: Color(0xFF007A33),
-                              ),
+                      const SizedBox(height: 24), // Reduced from 32
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: List.generate(
+                          totalPages,
+                          (index) => Container(
+                            margin: const EdgeInsets.symmetric(horizontal: 4),
+                            width: 8,
+                            height: 8,
+                            decoration: BoxDecoration(
+                              color: index == currentPage
+                                  ? const Color(0xFF007A33)
+                                  : const Color(0xFFB5B5B5),
+                              shape: BoxShape.circle,
                             ),
-                          ],
+                          ),
                         ),
                       ),
-                    ),
-                  ],
+                      const SizedBox(height: 24), // Reduced from 32
+                      SizedBox(
+                        width: double.infinity,
+                        child: ElevatedButton(
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFF007A33),
+                            foregroundColor: Colors.white,
+                            minimumSize: const Size.fromHeight(50),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            textStyle: const TextStyle(
+                              fontFamily: 'Geist',
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          onPressed: () {
+                            Navigator.pushReplacement(
+                              context,
+                              MaterialPageRoute(
+                                  builder: (context) => const RegisterScreen(),
+                                  settings: RouteSettings(arguments: {'flow': 'signup'}),                                     
+                            ),
+                          );
+                          },
+                          child: const Text('Sign Up'),
+                        ),
+                      ),
+                      const SizedBox(height: 12), // Reduced from 16
+                      GestureDetector(
+                        onTap: () {
+                          Navigator.pushReplacement(
+                              context,
+                              MaterialPageRoute(
+                                  builder: (context) => const LoginScreen(),
+                                  settings: RouteSettings(arguments: {'flow': 'login'}),                                     
+                            )
+                         );
+                        },
+                        child: const Text.rich(
+                          TextSpan(
+                            text: 'Already have an account? ',
+                            style: TextStyle(
+                              fontSize: 14,
+                              color: Color(0xFF007A33),
+                              fontFamily: 'Geist',
+                            ),
+                            children: [
+                              TextSpan(
+                                text: 'Login',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  color: Color(0xFF007A33),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),

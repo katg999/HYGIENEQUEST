@@ -1,19 +1,21 @@
 import 'package:flutter/material.dart';
-import 'home_screen.dart';
-import 'chart_screen.dart';
-import 'splash_screen.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'login_screen.dart';
+import 'register_screen.dart';
+import 'onboard_screening.dart'; // Renamed from onboarding_screen.dart
+import 'lesson_plans_screen.dart';
+import 'attendance_screen.dart';
+import 'hygiene_products_screen.dart';
+import 'splash_screen.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
   try {
     await dotenv.load(fileName: ".env");
-    print("✅ .env file loaded successfully");
-    print("API_KEY loaded: ${dotenv.env['API_KEY']?.substring(0, 10)}..."); 
+    debugPrint("✅ .env file loaded successfully");
   } catch (e) {
-    print("❌ Error loading .env file: $e");
-    print("Error type: ${e.runtimeType}");
+    debugPrint("❌ Error loading .env file: $e");
   }
 
   runApp(const MyApp());
@@ -28,13 +30,17 @@ class MyApp extends StatelessWidget {
       title: 'Dettol Hygiene Quest',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.teal),
+        colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF007A33)),
         useMaterial3: true,
       ),
       home: const SplashScreen(),
       routes: {
-        '/voice_screen': (context) => const Placeholder(),
-        '/text_screen': (context) => const ChatScreen(),
+        '/onboarding': (context) => const OnboardingScreen(),
+        '/login': (context) => const LoginScreen(),
+        '/register': (context) => const RegisterScreen(),
+        '/lesson_plans': (context) => const LessonPlansScreen(),
+        '/attendance': (context) => const AttendanceScreen(),
+        
       },
     );
   }

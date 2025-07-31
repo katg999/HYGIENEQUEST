@@ -25,6 +25,7 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
   late AnimationController _animationController;
   late final OpenAIService _openAIService;
   late final AttendanceService _attendanceService;
+  String? _initialFlow; // 'login' or 'signup'
 
   Map<String, dynamic>? _currentAttendanceAnalysis;
 
@@ -49,7 +50,7 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
   final String _baseUrl = 'https://hygienequestemdpoints.onrender.com';
 
   @override
-  void initState() {
+ void initState() {
     super.initState();
     _animationController = AnimationController(
       duration: const Duration(milliseconds: 300),
@@ -57,9 +58,36 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
     );
     _openAIService = OpenAIService();
     _attendanceService = AttendanceService();
-    _addBotMessage("Welcome to the Dettol Hygiene Quest Chatbot! 🤖", showAvatar: true);
-    _addBotMessage("I'm here to support your hygiene education efforts in class. 📚");
-    _addBotMessage("Please enter your phone number to get started. 📱");
+    
+    // Wait for the widget to be fully initialized before checking arguments
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final args = ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
+      _initialFlow = args?['flow'];
+      
+      if (_initialFlow == 'login') {
+        _handleLoginFlow();
+      } else if (_initialFlow == 'signup') {
+        _handleSignupFlow();
+      } else {
+        // Default flow if no arguments passed
+        _addBotMessage("Welcome to the Dettol Hygiene Quest Chatbot! 🤖", showAvatar: true);
+        _addBotMessage("I'm here to support your hygiene education efforts in class. 📚");
+        _addBotMessage("Please enter your phone number to get started. 📱");
+      }
+    });
+  }
+
+
+    void _handleLoginFlow() {
+    _addBotMessage("Welcome back! Let's log you in. 🤖", showAvatar: true);
+    _addBotMessage("Please enter your phone number to continue. 📱");
+    _step = 0; // Start with phone number input
+  }
+
+  void _handleSignupFlow() {
+    _addBotMessage("Let's get you registered! 🤖", showAvatar: true);
+    _addBotMessage("Please enter your phone number to begin. 📱");
+    _step = 0; // Start with phone number input
   }
 
   @override
@@ -246,77 +274,80 @@ void _displayAttendanceResults(Map<String, dynamic> analysis) {
   _addBotMessage("What would you like to do next? 🤔");
 }
 
-  Future<void> _checkRegistrationStatus() async {
+  // Modify the _checkRegistrationStatus method:
+Future<void> _checkRegistrationStatus() async {
+  setState(() {
+    _isLoading = true;
+  });
+  
+  int loadingMessageIndex = _chat.length;
+  _addBotMessage("Checking registration status... 🔍", showLoading: true);
+  
+  try {
+    final response = await http.get(
+      Uri.parse('$_baseUrl/check-registration/$_phoneNumber'),
+      headers: {'Content-Type': 'application/json'},
+    );
+
     setState(() {
-      _isLoading = true;
+      if (loadingMessageIndex < _chat.length) {
+        _chat.removeAt(loadingMessageIndex);
+      }
     });
-    
-    // Add loading message and keep track of its index
-    int loadingMessageIndex = _chat.length;
-    _addBotMessage("Checking registration status... 🔍", showLoading: true);
-    
-    try {
-      final response = await http.get(
-        Uri.parse('$_baseUrl/check-registration/$_phoneNumber'),
-        headers: {'Content-Type': 'application/json'},
-      );
 
-      // Remove the loading message
-      setState(() {
-        if (loadingMessageIndex < _chat.length) {
-          _chat.removeAt(loadingMessageIndex);
-        }
-      });
-
-      if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
-        if (data['registered'] == true) {
-          // User is already registered
-          _fullName = data['name'] ?? 'User';
-          _school = data['school'] ?? '';
-          _district = data['district'] ?? '';
-          _language = data['language'] ?? 'English';
-          
-          _addBotMessage("Registration status checked successfully! ✅");
+    if (response.statusCode == 200) {
+      final data = jsonDecode(response.body);
+      if (data['registered'] == true) {
+        // User is already registered
+        _fullName = data['name'] ?? 'User';
+        _school = data['school'] ?? '';
+        _district = data['district'] ?? '';
+        _language = data['language'] ?? 'English';
+        
+        if (_initialFlow == 'login') {
           _addBotMessage("Welcome back, $_fullName! 🎉");
-          _addBotMessage("Great to see you again! What would you like to do today? 😊");
+          _addBotMessage("You're now logged in. What would you like to do today? 😊");
           _step = 7; // Go directly to main menu
         } else {
-          // User is not registered, proceed with registration
-          _addBotMessage("Registration check complete! ✅");
-          _addBotMessage("Perfect! Let's begin the registration setup. ✅");
+          _addBotMessage("This phone number is already registered. 🎉");
+          _addBotMessage("Would you like to login instead?");
+          // You could add login prompt buttons here
+          _step = 0; // Reset to phone number input
+        }
+      } else {
+        // New user - proceed with appropriate flow
+        if (_initialFlow == 'login') {
+          _addBotMessage("This phone number isn't registered. ❌");
+          _addBotMessage("Would you like to sign up instead?");
+          // You could add signup prompt buttons here
+          _step = 0; // Reset to phone number input
+        } else {
+          _addBotMessage("Let's complete your registration! ✅");
           _addBotMessage("What's your full name? 👤");
           _step = 1; // Continue with registration flow
         }
-      } else if (response.statusCode == 404) {
-        // User not found, proceed with registration
-        _addBotMessage("Registration check complete! ✅");
-        _addBotMessage("Perfect! Let's begin the registration setup. ✅");
-        _addBotMessage("What's your full name? 👤");
-        _step = 1; // Continue with registration flow
-      } else {
-        final error = jsonDecode(response.body)['detail'] ?? 'Failed to check registration status';
-        _addBotMessage("❌ Error: $error");
-        _addBotMessage("Let's proceed with registration. What's your full name? 👤");
-        _step = 1; // Continue with registration flow as fallback
       }
-    } catch (e) {
-      // Remove the loading message in case of error too
-      setState(() {
-        if (loadingMessageIndex < _chat.length) {
-          _chat.removeAt(loadingMessageIndex);
-        }
-      });
-      
-      _addBotMessage("❌ Error: Failed to connect to the server. Let's proceed with registration.");
-      _addBotMessage("What's your full name? 👤");
-      _step = 1; // Continue with registration flow as fallback
-    } finally {
-      setState(() {
-        _isLoading = false;
-      });
+    } else {
+      final error = jsonDecode(response.body)['detail'] ?? 'Failed to check registration status';
+      _addBotMessage("❌ Error: $error");
+      _addBotMessage("Let's try again. Please enter your phone number. 📱");
+      _step = 0;
     }
+  } catch (e) {
+    setState(() {
+      if (loadingMessageIndex < _chat.length) {
+        _chat.removeAt(loadingMessageIndex);
+      }
+    });
+    
+    _addBotMessage("❌ Error: Failed to connect to the server. Please try again.");
+    _step = 0;
+  } finally {
+    setState(() {
+      _isLoading = false;
+    });
   }
+}
 
 
 

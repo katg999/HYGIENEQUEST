@@ -15,13 +15,14 @@ class _SplashScreenState extends State<SplashScreen> {
     super.initState();
 
     // Extend delay so you can view the splash better (e.g. 5 seconds)
-    Future.delayed(const Duration(seconds: 10), () {
+    Future.delayed(const Duration(seconds: 2), () {
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(builder: (_) => const OnboardingScreen()),
       );
     });
   }
+  
 
   @override
   Widget build(BuildContext context) {

@@ -3,6 +3,8 @@ import 'package:image_picker/image_picker.dart';
 import 'dart:io';
 import 'attendance_service.dart';
 import 'package:open_file/open_file.dart';
+import 'lesson_plans_screen.dart';
+import 'hygiene_products_screen.dart';
 
 class AttendanceScreen extends StatefulWidget {
   const AttendanceScreen({super.key, required this.userName});
@@ -18,6 +20,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
   bool _isLoading = false;
   Map<String, dynamic>? _analysis;
   String? _topicCovered;
+  int _currentIndex = 1; // Set to 1 since this is the Attendance tab
 
   @override
   Widget build(BuildContext context) {
@@ -111,6 +114,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
               ),
             ),
           ),
+          _buildBottomNavBar(),
         ],
       ),
     );
@@ -388,6 +392,106 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
         child: const Text(
           'NEW ATTENDANCE',
           style: TextStyle(color: Colors.white),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildBottomNavBar() {
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 24),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.1),
+            blurRadius: 10,
+            offset: const Offset(0, -5),
+          ),
+        ],
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceAround,
+        children: [
+          _buildNavItem(
+            icon: 'assets/images/Lessonplan.png',
+            label: 'Lesson Plans',
+            isSelected: _currentIndex == 0,
+            onTap: () {
+              setState(() {
+                _currentIndex = 0;
+              });
+              Navigator.pushReplacement(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => LessonPlansScreen(userName: widget.userName),
+                ),
+              );
+            },
+          ),
+          _buildNavItem(
+            icon: 'assets/images/Attendance.png',
+            label: 'Attendance',
+            isSelected: _currentIndex == 1,
+            onTap: () {
+              setState(() {
+                _currentIndex = 1;
+              });
+            },
+          ),
+          _buildNavItem(
+            icon: 'assets/images/HygieneProducts.png',
+            label: 'Hygiene',
+            isSelected: _currentIndex == 2,
+            onTap: () {
+              setState(() {
+                _currentIndex = 2;
+              });
+              Navigator.pushReplacement(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => HygieneProductsScreen(userName: widget.userName),
+                ),
+              );
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildNavItem({
+    required String icon,
+    required String label,
+    required bool isSelected,
+    required VoidCallback onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
+        decoration: BoxDecoration(
+          color: isSelected ? const Color(0xFF007A33) : Colors.transparent,
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Image.asset(
+              icon,
+              width: 24,
+              color: isSelected ? Colors.white : const Color(0xFF007A33),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              label,
+              style: TextStyle(
+                color: isSelected ? Colors.white : const Color(0xFF007A33),
+                fontSize: 12,
+              ),
+            ),
+          ],
         ),
       ),
     );

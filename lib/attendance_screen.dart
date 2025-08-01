@@ -2,9 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'dart:io';
 import 'attendance_service.dart';
+import 'package:open_file/open_file.dart';
 
 class AttendanceScreen extends StatefulWidget {
-  const AttendanceScreen({super.key});
+  const AttendanceScreen({super.key, required this.userName});
+  final String userName;
 
   @override
   State<AttendanceScreen> createState() => _AttendanceScreenState();
@@ -12,7 +14,7 @@ class AttendanceScreen extends StatefulWidget {
 
 class _AttendanceScreenState extends State<AttendanceScreen> {
   final AttendanceService _attendanceService = AttendanceService();
-  File? _selectedImage;
+  File? _selectedFile;
   bool _isLoading = false;
   Map<String, dynamic>? _analysis;
   String? _topicCovered;
@@ -20,130 +22,397 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Attendance')),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
+      appBar: AppBar(
+        title: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            if (_analysis == null) ...[
-              const Text(
-                'Upload Attendance Register',
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            const Text(
+              'Class Attendance',
+              style: TextStyle(
+                fontFamily: 'Bricolage Grotesque',
+                fontSize: 24,
+                fontWeight: FontWeight.w600,
+                height: 1.3,
+                color: Color(0xFFFFFFFF),
               ),
-              const SizedBox(height: 16),
-              ElevatedButton.icon(
-                onPressed: _isLoading ? null : _pickImage,
-                icon: const Icon(Icons.upload),
-                label: const Text('SELECT IMAGE'),
-              ),
-            ],
-            if (_selectedImage != null && _analysis == null) ...[
-              const SizedBox(height: 16),
-              Image.file(_selectedImage!, height: 200),
-              const SizedBox(height: 16),
-              ElevatedButton.icon(
-                onPressed: _isLoading ? null : _analyzeImage,
-                icon: const Icon(Icons.analytics),
-                label: const Text('ANALYZE ATTENDANCE'),
-              ),
-            ],
-            if (_isLoading) const LinearProgressIndicator(),
-            if (_analysis != null && _topicCovered == null) ...[
-              _buildAnalysisSummary(),
-              const SizedBox(height: 24),
-              const Text(
-                'Enter the topic covered today:',
-                style: TextStyle(fontWeight: FontWeight.bold),
-              ),
-              TextField(
-                decoration: const InputDecoration(
-                  hintText: 'e.g. Hand Washing Techniques',
-                  border: OutlineInputBorder(),
+            ),
+            Image.asset('assets/images/Group9.png', height: 30),
+          ],
+        ),
+        backgroundColor: const Color(0xFF007A33),
+        centerTitle: false,
+        automaticallyImplyLeading: false,
+      ),
+      backgroundColor: const Color(0xFFFFFBF0),
+      body: Column(
+        children: [
+          Expanded(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.all(16.0),
+              child: ConstrainedBox(
+                constraints: BoxConstraints(
+                  minHeight: MediaQuery.of(context).size.height - 200,
                 ),
-                onChanged: (value) => _topicCovered = value,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _buildBotMessage("Hello ${widget.userName}👋, Let's record today's class attendance"),
+                    _buildBotMessage("Please share your attendance sheet (image of your register)"),
+                    
+                    const SizedBox(height: 20),
+                    _buildUploadSection(),
+                    
+                    if (_selectedFile != null && _analysis == null) ...[
+                      const SizedBox(height: 20),
+                      Image.file(_selectedFile!, height: 200),
+                      const SizedBox(height: 20),
+                      if (!_isLoading)
+                        ElevatedButton(
+                          onPressed: _analyzeAttendance,
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFF007A33),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                          ),
+                          child: const Text(
+                            'ANALYZE ATTENDANCE',
+                            style: TextStyle(color: Colors.white),
+                          ),
+                        ),
+                    ],
+                    
+                    if (_isLoading) ...[
+                      const SizedBox(height: 20),
+                      _buildBotMessage("⏳ Perfect! Let's analyse your attendance sheet"),
+                      const LinearProgressIndicator(),
+                    ],
+                    
+                    if (_analysis != null && _topicCovered == null) ...[
+                      const SizedBox(height: 20),
+                      _buildBotMessage("Analysis complete! Here's your detailed feedback:"),
+                      const SizedBox(height: 20),
+                      _buildScoreCard(),
+                      const SizedBox(height: 20),
+                      _buildAnalysisText(),
+                      const SizedBox(height: 20),
+                      _buildActionButtons(),
+                    ],
+                    
+                    if (_topicCovered != null) ...[
+                      const SizedBox(height: 40),
+                      _buildSuccessMessage(),
+                      const SizedBox(height: 20),
+                      _buildNewAttendanceButton(),
+                    ],
+                  ],
+                ),
               ),
-              const SizedBox(height: 16),
-              ElevatedButton(
-                onPressed: _submitAttendance,
-                child: const Text('SUBMIT ATTENDANCE'),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildBotMessage(String message) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Image.asset('assets/images/Keti.png', width: 32, height: 32),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: const BorderRadius.only(
+                  topRight: Radius.circular(12),
+                  bottomLeft: Radius.circular(12),
+                  bottomRight: Radius.circular(12),
+                ),
               ),
-            ],
-            if (_topicCovered != null) ...[
-              const Icon(Icons.check_circle, color: Colors.green, size: 60),
-              const SizedBox(height: 16),
-              const Text(
-                'Attendance submitted successfully!',
-                textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 18),
+              child: Text(
+                message,
+                style: const TextStyle(
+                  color: Color(0xFF000000),
+                  fontSize: 14,
+                  fontWeight: FontWeight.w400,
+                  height: 1.5,
+                ),
               ),
-              const SizedBox(height: 16),
-              ElevatedButton(
-                onPressed: () => setState(() {
-                  _selectedImage = null;
-                  _analysis = null;
-                  _topicCovered = null;
-                }),
-                child: const Text('NEW ATTENDANCE'),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildUploadSection() {
+    return GestureDetector(
+      onTap: _pickAttendanceSheet,
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: const Color(0xFFE2E8F0)),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Image.asset('assets/images/Upload.png', width: 24),
+            const SizedBox(height: 8),
+            const Text(
+              'Upload Attendance Sheet',
+              style: TextStyle(
+                color: Color(0xFF007A33),
+                fontWeight: FontWeight.w600,
               ),
-            ],
+            ),
+            const SizedBox(height: 4),
+            const Text(
+              'JPG or PNG files',
+              style: TextStyle(
+                color: Color(0xFF64748B),
+                fontSize: 12,
+              ),
+            ),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildAnalysisSummary() {
+  Widget _buildScoreCard() {
+    final summary = _analysis?['summary'] ?? {};
+    final presentCount = summary['present_count'] ?? 0;
+    final total = summary['total_count'] ?? 0;
+    final score = ((presentCount / total) * 100).round();
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 60,
+            height: 60,
+            decoration: BoxDecoration(
+              color: const Color(0xFF007A33),
+              shape: BoxShape.circle,
+            ),
+            child: Center(
+              child: Text(
+                '$score',
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(width: 16),
+          const Text(
+            'Class Attendance Score',
+            style: TextStyle(
+              fontFamily: 'Geist',
+              fontWeight: FontWeight.w600,
+              fontSize: 14,
+              height: 1.5,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildAnalysisText() {
     final summary = _analysis?['summary'] ?? {};
     final students = _analysis?['students'] ?? [];
     final presentCount = summary['present_count'] ?? 0;
     final absentCount = summary['absent_count'] ?? 0;
     final total = summary['total_count'] ?? 0;
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Text(
-          'Attendance Summary',
-          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-        ),
-        const SizedBox(height: 8),
-        Text('📅 Date: ${_analysis?['date'] ?? 'Not specified'}'),
-        Text('🏫 Class: ${_analysis?['class_info'] ?? 'Not specified'}'),
-        Text('👥 Total Students: $total'),
-        Text('✅ Present: $presentCount'),
-        Text('❌ Absent: $absentCount'),
-        const SizedBox(height: 16),
-        if (absentCount > 0) ...[
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            '📅 Date: ${_analysis?['date'] ?? 'Not specified'}',
+            style: const TextStyle(fontWeight: FontWeight.bold),
+          ),
+          Text('🏫 Class: ${_analysis?['class_info'] ?? 'Not specified'}'),
+          const SizedBox(height: 12),
+          Text('👥 Total Students: $total'),
+          Text('✅ Present: $presentCount'),
+          Text('❌ Absent: $absentCount'),
+          const SizedBox(height: 12),
+          if (absentCount > 0) ...[
+            const Text(
+              'Absent Students:',
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
+            ...students.where((s) => s['status'] == 'absent').map((student) {
+              return Text('• ${student['name']}: ${student['reason'] ?? 'No reason provided'}');
+            }).toList(),
+          ],
+          const SizedBox(height: 12),
           const Text(
-            'Absent Students:',
+            'Participation Insights:',
             style: TextStyle(fontWeight: FontWeight.bold),
           ),
-          ...students.where((s) => s['status'] == 'absent').map((student) {
-            return Text('• ${student['name']}: ${student['reason'] ?? 'No reason'}');
-          }).toList(),
+          Text(_analysis?['participation_insights'] ?? 'No participation insights available'),
         ],
+      ),
+    );
+  }
+
+  Widget _buildActionButtons() {
+    return Column(
+      children: [
+        ElevatedButton(
+          onPressed: _submitAttendance,
+          style: ElevatedButton.styleFrom(
+            backgroundColor: const Color(0xFF007A33),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(8),
+            ),
+            padding: const EdgeInsets.symmetric(vertical: 12),
+            minimumSize: const Size(double.infinity, 48),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Image.asset('assets/images/Download.png', width: 20),
+              const SizedBox(width: 8),
+              const Text(
+                'Download Today\'s AI Report',
+                style: TextStyle(color: Colors.white),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 12),
+        OutlinedButton(
+          onPressed: () {
+            setState(() {
+              _selectedFile = null;
+              _analysis = null;
+              _topicCovered = null;
+            });
+          },
+          style: OutlinedButton.styleFrom(
+            side: const BorderSide(color: Color(0xFF007A33)),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(8),
+            ),
+            padding: const EdgeInsets.symmetric(vertical: 12),
+            minimumSize: const Size(double.infinity, 48),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Image.asset('assets/images/Analyse.png', width: 20),
+              const SizedBox(width: 8),
+              const Text(
+                'Analyse Another Attendance',
+                style: TextStyle(color: Color(0xFF007A33)),
+              ),
+            ],
+          ),
+        ),
       ],
     );
   }
 
-  Future<void> _pickImage() async {
+  Widget _buildSuccessMessage() {
+    return Column(
+      children: [
+        const Icon(Icons.check_circle, color: Color(0xFF007A33), size: 60),
+        const SizedBox(height: 16),
+        const Text(
+          'Attendance submitted successfully!',
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            fontSize: 18,
+            fontWeight: FontWeight.bold,
+            color: Color(0xFF007A33),
+          ),
+        ),
+        const SizedBox(height: 8),
+        Text(
+          'Topic: $_topicCovered',
+          textAlign: TextAlign.center,
+          style: const TextStyle(fontSize: 16),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildNewAttendanceButton() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: ElevatedButton(
+        onPressed: () {
+          setState(() {
+            _selectedFile = null;
+            _analysis = null;
+            _topicCovered = null;
+          });
+        },
+        style: ElevatedButton.styleFrom(
+          backgroundColor: const Color(0xFF007A33),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(8),
+          ),
+          padding: const EdgeInsets.symmetric(vertical: 12),
+          minimumSize: const Size(double.infinity, 48),
+        ),
+        child: const Text(
+          'NEW ATTENDANCE',
+          style: TextStyle(color: Colors.white),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _pickAttendanceSheet() async {
     final picker = ImagePicker();
     final pickedFile = await picker.pickImage(source: ImageSource.gallery);
     if (pickedFile != null) {
-      setState(() => _selectedImage = File(pickedFile.path));
+      setState(() {
+        _selectedFile = File(pickedFile.path);
+        _analysis = null;
+        _topicCovered = null;
+      });
     }
   }
 
-  Future<void> _analyzeImage() async {
-    if (_selectedImage == null) return;
+  Future<void> _analyzeAttendance() async {
+    if (_selectedFile == null) return;
     
     setState(() => _isLoading = true);
     try {
-      final result = await _attendanceService.processAttendanceRegister(_selectedImage!);
+      final result = await _attendanceService.processAttendanceRegister(_selectedFile!);
       if (result['success'] == true) {
         setState(() => _analysis = result['analysis']);
-        await _attendanceService.openGeneratedPDF(result['pdfFile']);
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Error: ${result['error']}')),
@@ -159,20 +428,13 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
   }
 
   Future<void> _submitAttendance() async {
-    if (_topicCovered == null || _topicCovered!.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please enter the topic covered')),
-      );
-      return;
-    }
-
     setState(() => _isLoading = true);
     try {
       // Here you would typically send to your backend
       // await _apiService.submitAttendance(...);
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Attendance submitted successfully')),
-      );
+      setState(() {
+        _topicCovered = "Submitted"; // Mark as submitted
+      });
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Error: ${e.toString()}')),

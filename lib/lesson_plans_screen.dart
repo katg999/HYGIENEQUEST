@@ -6,6 +6,7 @@ import 'package:open_file/open_file.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:path_provider/path_provider.dart';
+import 'attendance_screen.dart';
 
 class LessonPlansScreen extends StatefulWidget {
   
@@ -22,12 +23,14 @@ class _LessonPlansScreenState extends State<LessonPlansScreen> {
   bool _isLoading = false;
   Map<String, dynamic>? _analysis;
   File? _generatedPdf;
+  int _currentIndex = 0; // To track the current selected tab
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Stack(
+        title: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             const Text(
               'Lesson Plans',
@@ -39,16 +42,11 @@ class _LessonPlansScreenState extends State<LessonPlansScreen> {
                 color: Color(0xFFFFFFFF),
               ),
             ),
-            Positioned(
-              right: 0,
-              top: 0,
-              bottom: 0,
-              child: Image.asset('assets/images/Group9.png', height: 100),
-            ),
+            Image.asset('assets/images/Group9.png', height: 30),
           ],
         ),
         backgroundColor: const Color(0xFF007A33),
-        centerTitle: true,
+        centerTitle: false,
       ),
       backgroundColor: const Color(0xFFFFFBF0),
       body: Column(
@@ -56,53 +54,58 @@ class _LessonPlansScreenState extends State<LessonPlansScreen> {
           Expanded(
             child: SingleChildScrollView(
               padding: const EdgeInsets.all(16.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _buildBotMessage("Hello ${widget.userName}, I'm here to help you improve your lesson plans"),
-                  _buildBotMessage("Please share your lesson plan (image of your handwritten plan)"),
-                  
-                  const SizedBox(height: 20),
-                  _buildUploadSection(),
-                  
-                  if (_selectedFile != null) ...[
+              child: ConstrainedBox(
+                constraints: BoxConstraints(
+                  minHeight: MediaQuery.of(context).size.height - 200,
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _buildBotMessage("Hello ${widget.userName}, I'm here to help you improve your lesson plans"),
+                    _buildBotMessage("Please share your lesson plan (image of your handwritten plan)"),
+                    
                     const SizedBox(height: 20),
-                    Image.file(_selectedFile!, height: 200),
-                    const SizedBox(height: 20),
-                    if (!_isLoading)
-                      ElevatedButton(
-                        onPressed: _analyzeLessonPlan,
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF007A33),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(8),
+                    _buildUploadSection(),
+                    
+                    if (_selectedFile != null) ...[
+                      const SizedBox(height: 20),
+                      Image.file(_selectedFile!, height: 200),
+                      const SizedBox(height: 20),
+                      if (!_isLoading)
+                        ElevatedButton(
+                          onPressed: _analyzeLessonPlan,
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFF007A33),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            padding: const EdgeInsets.symmetric(vertical: 12),
                           ),
-                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          child: const Text(
+                            'ANALYZE LESSON PLAN',
+                            style: TextStyle(color: Colors.white),
+                          ),
                         ),
-                        child: const Text(
-                          'ANALYZE LESSON PLAN',
-                          style: TextStyle(color: Colors.white),
-                        ),
-                      ),
+                    ],
+                    
+                    if (_isLoading) ...[
+                      const SizedBox(height: 20),
+                      _buildBotMessage("⏳ Perfect! Let's analyse your lesson plan"),
+                      const LinearProgressIndicator(),
+                    ],
+                    
+                    if (_analysis != null) ...[
+                      const SizedBox(height: 20),
+                      _buildBotMessage("Analysis complete! Here's your detailed feedback:"),
+                      const SizedBox(height: 20),
+                      _buildScoreCard(),
+                      const SizedBox(height: 20),
+                      _buildAnalysisText(),
+                      const SizedBox(height: 20),
+                      _buildActionButtons(),
+                    ],
                   ],
-                  
-                  if (_isLoading) ...[
-                    const SizedBox(height: 20),
-                    _buildBotMessage("⏳ Perfect! Let's analyse your lesson plan"),
-                    const LinearProgressIndicator(),
-                  ],
-                  
-                  if (_analysis != null) ...[
-                    const SizedBox(height: 20),
-                    _buildBotMessage("Analysis complete! Here's your detailed feedback:"),
-                    const SizedBox(height: 20),
-                    _buildScoreCard(),
-                    const SizedBox(height: 20),
-                    _buildAnalysisText(),
-                    const SizedBox(height: 20),
-                    _buildActionButtons(),
-                  ],
-                ],
+                ),
               ),
             ),
           ),
@@ -148,42 +151,42 @@ class _LessonPlansScreenState extends State<LessonPlansScreen> {
   }
 
   Widget _buildUploadSection() {
-    return GestureDetector(
-      onTap: _pickLessonPlan,
-      child: Container(
-        width: 370,
-        height: 102,
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: const Color(0xFFE2E8F0)),
-        ),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Image.asset('assets/images/Upload.png', width: 24),
-            const SizedBox(height: 8),
-            const Text(
-              'Upload lesson plan',
-              style: TextStyle(
-                color: Color(0xFF007A33),
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-            const SizedBox(height: 4),
-            const Text(
-              'JPG or PNG files',
-              style: TextStyle(
-                color: Color(0xFF64748B),
-                fontSize: 12,
-              ),
-            ),
-          ],
-        ),
+  return GestureDetector(
+    onTap: _pickLessonPlan,
+    child: Container(
+      width: double.infinity, // Changed from fixed 370 to responsive
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
       ),
-    );
-  }
+      child: Column(
+        mainAxisSize: MainAxisSize.min, // Added to prevent overflow
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Image.asset('assets/images/Upload.png', width: 24),
+          const SizedBox(height: 8),
+          const Text(
+            'Upload lesson plan',
+            style: TextStyle(
+              color: Color(0xFF007A33),
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(height: 4),
+          const Text(
+            'JPG or PNG files',
+            style: TextStyle(
+              color: Color(0xFF64748B),
+              fontSize: 12,
+            ),
+          ),
+        ],
+      ),
+    ),
+  );
+}
 
   Widget _buildScoreCard() {
     return Container(
@@ -328,26 +331,80 @@ class _LessonPlansScreenState extends State<LessonPlansScreen> {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceAround,
         children: [
-          IconButton(
-            icon: Image.asset(
-              'assets/images/Lessonplan.png',
-              color: const Color(0xFF007A33),
-            ),
-            onPressed: () {},
-          ),
-          IconButton(
-            icon: Image.asset('assets/images/Attendance.png'),
-            onPressed: () {
-              // Navigate to attendance screen
+          _buildNavItem(
+            icon: 'assets/images/Lessonplan.png',
+            label: 'Lesson Plans',
+            isSelected: _currentIndex == 0,
+            onTap: () {
+              setState(() {
+                _currentIndex = 0;
+              });
             },
           ),
-          IconButton(
-            icon: Image.asset('assets/images/HygieneProducts.png'),
-            onPressed: () {
+          _buildNavItem(
+          icon: 'assets/images/Attendance.png',
+          label: 'Attendance',
+          isSelected: _currentIndex == 1,
+          onTap: () {
+            setState(() {
+              _currentIndex = 1;
+            });
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => AttendanceScreen(userName: widget.userName),
+              ),
+            );
+          },
+        ),
+          _buildNavItem(
+            icon: 'assets/images/HygieneProducts.png',
+            label: 'Hygiene',
+            isSelected: _currentIndex == 2,
+            onTap: () {
+              setState(() {
+                _currentIndex = 2;
+              });
               // Navigate to hygiene products screen
             },
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildNavItem({
+    required String icon,
+    required String label,
+    required bool isSelected,
+    required VoidCallback onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
+        decoration: BoxDecoration(
+          color: isSelected ? const Color(0xFF007A33) : Colors.transparent,
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Image.asset(
+              icon,
+              width: 24,
+              color: isSelected ? Colors.white : const Color(0xFF007A33),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              label,
+              style: TextStyle(
+                color: isSelected ? Colors.white : const Color(0xFF007A33),
+                fontSize: 12,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

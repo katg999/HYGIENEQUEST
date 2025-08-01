@@ -7,6 +7,7 @@ import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:path_provider/path_provider.dart';
 import 'attendance_screen.dart';
+import 'hygiene_products_screen.dart';
 
 class LessonPlansScreen extends StatefulWidget {
   
@@ -366,6 +367,12 @@ class _LessonPlansScreenState extends State<LessonPlansScreen> {
                 _currentIndex = 2;
               });
               // Navigate to hygiene products screen
+              Navigator.push(
+              context,
+              MaterialPageRoute(
+                 builder: (context) => HygieneProductsScreen(userName: widget.userName),
+              ),
+            );
             },
           ),
         ],

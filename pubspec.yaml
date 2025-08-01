@@ -65,4 +65,10 @@ flutter:
     - assets/images/mic_line.png
     - assets/images/paperclip.png
     - assets/images/SendIcon.png
-    
+    - assets/images/Upload.png
+    - assets/images/Lessonplan.png
+    - assets/images/Attendance.png
+    - assets/images/HygieneProducts.png
+    - assets/images/Download.png
+    - assets/images/Analyse.png
+

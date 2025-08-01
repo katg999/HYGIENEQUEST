@@ -38,8 +38,8 @@ class MyApp extends StatelessWidget {
         '/onboarding': (context) => const OnboardingScreen(),
         '/login': (context) => const LoginScreen(),
         '/register': (context) => const RegisterScreen(),
-        '/lesson_plans': (context) => const LessonPlansScreen(),
-        '/attendance': (context) => const AttendanceScreen(),
+        
+       
         
       },
     );

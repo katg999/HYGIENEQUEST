@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'auth_service.dart';
 import 'onboard_screening.dart';
+import 'lesson_plans_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -262,48 +263,51 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   Future<void> _checkRegistrationStatus() async {
-    setState(() => _isLoading = true);
-    try {
-      final response = await _authService.checkRegistrationStatus(_phoneNumber);
+  setState(() => _isLoading = true);
+  try {
+    final response = await _authService.checkRegistrationStatus(_phoneNumber);
+    
+    if (response['registered'] == true) {
+      _userName = response['name'] ?? 'User';
       
-      if (response['registered'] == true) {
-        _userName = response['name'] ?? 'User';
-        
-        setState(() {
-          _conversation.addAll([
-            {
-              'sender': 'bot',
-              'message': "Welcome back, $_userName! 😊",
-            },
-            {
-              'sender': 'bot',
-              'message': "⏳ Redirecting to your account...",
-            },
-          ]);
-          _loginComplete = true;
-        });
-        
-        // Navigate to home screen after a short delay
-        Future.delayed(const Duration(seconds: 2), () {
-          Navigator.pushReplacementNamed(context, '/home');
-        });
-      } else {
-        setState(() {
-          _conversation.add({
+      setState(() {
+        _conversation.addAll([
+          {
             'sender': 'bot',
-            'message': "This phone number is not registered. Please register first.",
-          });
-        });
-      }
-    } catch (e) {
+            'message': "Welcome back, $_userName! 😊",
+          },
+          {
+            'sender': 'bot',
+            'message': "⏳ Redirecting to your account...",
+          },
+        ]);
+        _loginComplete = true;
+      });
+      
+      // Navigate to lesson plans screen after a short delay
+      Future.delayed(const Duration(seconds: 2), () {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (context) => LessonPlansScreen(userName: _userName)),      
+        );
+      });
+    } else {
       setState(() {
         _conversation.add({
           'sender': 'bot',
-          'message': 'Error checking registration status. Please try again.',
+          'message': "This phone number is not registered. Please register first.",
         });
       });
-    } finally {
-      setState(() => _isLoading = false);
     }
+  } catch (e) {
+    setState(() {
+      _conversation.add({
+        'sender': 'bot',
+        'message': 'Error checking registration status. Please try again.',
+      });
+    });
+  } finally {
+    setState(() => _isLoading = false);
   }
+}
 }

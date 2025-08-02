@@ -352,7 +352,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
         const Icon(Icons.check_circle, color: Color(0xFF007A33), size: 60),
         const SizedBox(height: 16),
         const Text(
-          'Attendance submitted successfully!',
+          'Attendance Submitted Successfully!',
           textAlign: TextAlign.center,
           style: TextStyle(
             fontSize: 18,

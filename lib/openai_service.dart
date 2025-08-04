@@ -116,6 +116,65 @@ class OpenAIService {
     }
   }
 
+
+  Future<Map<String, dynamic>> extractRegistrationInfo(File documentImage) async {
+  try {
+    final apiKey = _apiKey;
+    if (apiKey == null || apiKey.isEmpty) {
+      throw Exception('API key not found. Please check your .env file.');
+    }
+
+    final bytes = await documentImage.readAsBytes();
+    final base64Image = base64Encode(bytes);
+
+    final response = await http.post(
+      Uri.parse('$_baseUrl/chat/completions'),
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $apiKey',
+      },
+      body: jsonEncode({
+        'model': _visionModel,
+        'messages': [
+          {
+            'role': 'system',
+            'content': 'You are an expert in extracting information from documents. '
+                'Analyze this document and return JSON with: '
+                'name (teacher name), school (school name), and district. '
+                'Focus on Ugandan school documents.'
+          },
+          {
+            'role': 'user',
+            'content': [
+              {
+                'type': 'text',
+                'text': 'Extract the teacher name, school name, and district from this document.'
+              },
+              {
+                'type': 'image_url',
+                'image_url': {
+                  'url': 'data:image/jpeg;base64,$base64Image'
+                }
+              }
+            ]
+          }
+        ],
+        'response_format': { 'type': 'json_object' },
+        'max_tokens': 500,
+      }),
+    );
+
+    if (response.statusCode == 200) {
+      final responseData = jsonDecode(response.body);
+      return jsonDecode(responseData['choices'][0]['message']['content']);
+    } else {
+      throw Exception('API Error: ${response.statusCode} - ${response.body}');
+    }
+  } catch (e) {
+    throw Exception('Document analysis failed: ${e.toString()}');
+  }
+}
+
   // Existing prompt builder
   String _buildPrompt(String lessonPlan) {
     return """

@@ -307,7 +307,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
               Image.asset('assets/images/Download.png', width: 20),
               const SizedBox(width: 8),
               const Text(
-                'Download Today\'s AI Report',
+                'Submitted Analyzed Report',
                 style: TextStyle(color: Colors.white),
               ),
             ],

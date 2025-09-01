@@ -31,6 +31,24 @@ class OpenAIService {
         .replaceAll("score", "evaluation"); // example tweaks
   }
 
+  /// --- Utility: Remove AI-style artifacts, JSON, and non-text characters ---
+  String _cleanText(String input) {
+    String output = input;
+
+    // Remove Markdown formatting
+    output = output
+        .replaceAll(RegExp(r'\*\*'), '') // bold markers
+        .replaceAll(RegExp(r'[_`~>#-]'), ''); // misc. markdown chars
+
+    // Remove JSON-like curly braces or quotes if model sneaks them in
+    output = output.replaceAll(RegExp(r'[\{\}\[\]\"]'), '');
+
+    // Normalize multiple spaces/newlines
+    output = output.replaceAll(RegExp(r'\s+'), ' ').trim();
+
+    return output;
+  }
+
   /// Analyze plain text lesson plan
   Future<Map<String, dynamic>> analyzeLessonPlan(String lessonPlanText) async {
     try {
@@ -73,8 +91,25 @@ class OpenAIService {
         content = _normalizeText(content);
         var parsed = jsonDecode(content);
 
+        // Clamp score
+        if (parsed['score'] != null) {
+          int score = int.tryParse(parsed['score'].toString()) ?? 0;
+          if (score < 0) score = 0;
+          if (score > 100) score = 100;
+          parsed['score'] = score;
+        }
+
+        // Clean and humanize enhanced plan
         if (parsed['enhanced_plan'] != null) {
           parsed['enhanced_plan'] = _humanizeText(parsed['enhanced_plan']);
+          parsed['enhanced_plan'] = _cleanText(parsed['enhanced_plan']);
+        }
+
+        // Clean feedback
+        if (parsed['feedback'] != null && parsed['feedback'] is List) {
+          parsed['feedback'] = (parsed['feedback'] as List)
+              .map((f) => _cleanText(f.toString()))
+              .toList();
         }
 
         return parsed;
@@ -143,8 +178,25 @@ class OpenAIService {
         content = _normalizeText(content);
         var parsed = jsonDecode(content);
 
+        // Clamp score
+        if (parsed['score'] != null) {
+          int score = int.tryParse(parsed['score'].toString()) ?? 0;
+          if (score < 0) score = 0;
+          if (score > 100) score = 100;
+          parsed['score'] = score;
+        }
+
+        // Clean and humanize enhanced plan
         if (parsed['enhanced_plan'] != null) {
           parsed['enhanced_plan'] = _humanizeText(parsed['enhanced_plan']);
+          parsed['enhanced_plan'] = _cleanText(parsed['enhanced_plan']);
+        }
+
+        // Clean feedback
+        if (parsed['feedback'] != null && parsed['feedback'] is List) {
+          parsed['feedback'] = (parsed['feedback'] as List)
+              .map((f) => _cleanText(f.toString()))
+              .toList();
         }
 
         return parsed;
@@ -205,8 +257,14 @@ class OpenAIService {
       if (response.statusCode == 200) {
         final responseData = jsonDecode(response.body);
         var content = responseData['choices'][0]['message']['content'];
+
         content = _normalizeText(content);
-        return jsonDecode(content);
+        var parsed = jsonDecode(content);
+
+        // Clean extracted values
+        parsed.updateAll((key, value) => _cleanText(value.toString()));
+
+        return parsed;
       } else {
         throw Exception('API Error: ${response.statusCode} - ${response.body}');
       }

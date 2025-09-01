@@ -307,13 +307,13 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
               Image.asset('assets/images/Download.png', width: 20),
               const SizedBox(width: 8),
               const Text(
-                'Submitted Analyzed Report',
+                'Submit Analyzed Report',
                 style: TextStyle(color: Colors.white),
               ),
             ],
           ),
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: 12),l,klkk
         OutlinedButton(
           onPressed: () {
             setState(() {

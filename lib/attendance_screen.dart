@@ -5,6 +5,7 @@ import 'attendance_service.dart';
 import 'package:open_file/open_file.dart';
 import 'lesson_plans_screen.dart';
 import 'hygiene_products_screen.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class AttendanceScreen extends StatefulWidget {
   const AttendanceScreen({super.key, required this.userName});
@@ -21,6 +22,11 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
   Map<String, dynamic>? _analysis;
   String? _topicCovered;
   int _currentIndex = 1; // Set to 1 since this is the Attendance tab
+
+  Future<String?> _getUserPhone() async {
+  final prefs = await SharedPreferences.getInstance();
+  return prefs.getString('userPhone');
+}
 
   @override
   Widget build(BuildContext context) {
@@ -532,19 +538,58 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
   }
 
   Future<void> _submitAttendance() async {
-    setState(() => _isLoading = true);
-    try {
-      // Here you would typically send to your backend
-      // await _apiService.submitAttendance(...);
-      setState(() {
-        _topicCovered = "Submitted"; // Mark as submitted
-      });
-    } catch (e) {
+  setState(() => _isLoading = true);
+  
+  try {
+    // Get user phone from shared preferences
+    final userPhone = await _getUserPhone();
+    
+    if (userPhone == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error: ${e.toString()}')),
+        const SnackBar(content: Text('User not found. Please log in again.')),
       );
-    } finally {
-      setState(() => _isLoading = false);
+      return;
     }
+    
+    // Extract data from analysis - using only the required fields
+    final summary = _analysis?['summary'] ?? {};
+    final presentCount = summary['present_count'] ?? 0;
+    final absentCount = summary['absent_count'] ?? 0;
+    
+    // Get the required fields with fallback values
+    final absenceReason = _analysis?['absence_reason'] ?? 'Not specified';
+    final subject = _analysis?['subject'] ?? 'General';
+    final district = _analysis?['district'] ?? 'Not specified';
+    
+    // Submit to backend - only the required fields
+    final result = await _attendanceService.submitAttendanceData(
+      phone: userPhone,
+      studentsPresent: presentCount,
+      studentsAbsent: absentCount,
+      absenceReason: absenceReason,
+      subject: subject,
+      district: district,
+    );
+    
+    if (result['success'] == true) {
+      setState(() {
+        _topicCovered = subject; // Use the subject as the topic covered
+      });
+      
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(result['message'])),
+      );
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(result['error'])),
+      );
+    }
+  } catch (e) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Error: ${e.toString()}')),
+    );
+  } finally {
+    setState(() => _isLoading = false);
   }
+}
 }

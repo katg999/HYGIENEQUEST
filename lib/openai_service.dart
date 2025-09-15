@@ -5,30 +5,78 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 class OpenAIService {
   static const String _baseUrl = 'https://api.openai.com/v1';
-  static const String _model = 'gpt-3.5-turbo'; // you can switch to 'gpt-4'
-  static const String _visionModel = 'gpt-4.1';
+  static const String _model = 'gpt-4o';
+  static const String _visionModel = 'gpt-4o';
 
   static String? get _apiKey => dotenv.env['API_KEY'];
 
-  /// --- Utility: Fix weird encoding issues like â€™ etc. ---
+  /// Fix encoding issues (like â€™ etc.)
   String _normalizeText(String input) {
     return utf8.decode(input.runes.toList(), allowMalformed: true)
-        .replaceAll("â€™", "’")
-        .replaceAll("â€œ", "“")
-        .replaceAll("â€", "”")
-        .replaceAll("â€“", "–")
-        .replaceAll("â€”", "—")
-        .replaceAll("Â", ""); // remove stray chars
+        .replaceAll("â€™", "'")
+        .replaceAll("â€œ", '"')
+        .replaceAll("â€", '"')
+        .replaceAll("â€“", "-")
+        .replaceAll("â€”", "-")
+        .replaceAll("Â", "");
   }
 
-  /// --- Utility: Make text more human and less AI-detectable ---
+  /// Make text more human and local
   String _humanizeText(String text) {
     return text
         .replaceAll("Pupils brainstorm", "Children think together")
         .replaceAll("Teacher moderates", "Teacher guides")
         .replaceAll("inclusive participation techniques", "making sure all children take part")
         .replaceAll("enhanced lesson plan", "improved lesson plan")
-        .replaceAll("score", "evaluation"); // example tweaks
+        .replaceAll("score", "evaluation");
+  }
+
+  /// Clean up strange characters and markdown
+  String _cleanText(String input) {
+    String output = input;
+
+    output = output
+        .replaceAll("â€™", "'")
+        .replaceAll("â€œ", '"')
+        .replaceAll("â€", '"')
+        .replaceAll("â€“", "-")
+        .replaceAll("â€”", "-")
+        .replaceAll("Â", "")
+        .replaceAll(RegExp(r'[\*\_`~>#\[\]\{\}]'), '') // remove markdown
+        .replaceAll(RegExp(r'\.{2,}'), '.') // multiple periods → one
+        .replaceAll(' .', '.')
+        .replaceAll(' ,', ',')
+        .replaceAll(' :', ':')
+        .replaceAll(RegExp(r'\s+'), ' ')
+        .trim();
+
+    return output;
+  }
+
+  /// Format lesson plan text nicely for teachers
+  String _formatLessonPlanText(String input) {
+    String formatted = input;
+
+    formatted = formatted.replaceAllMapped(
+      RegExp(r'(\d+\.)'),
+      (match) => '\n${match.group(1)}',
+    );
+
+    formatted = formatted.replaceAllMapped(
+      RegExp(r'(Teacher|Children):'),
+      (match) => '\n${match.group(1)}:',
+    );
+
+    formatted = formatted.replaceAllMapped(
+      RegExp(r'(Assessment|Materials|Emphasis):'),
+      (match) => '\n\n${match.group(1)}:',
+    );
+
+    formatted = formatted.replaceAll('. ', '.\n');
+
+    formatted = formatted.replaceAll(RegExp(r'\s+'), ' ').trim();
+
+    return formatted;
   }
 
   /// Analyze plain text lesson plan
@@ -69,12 +117,24 @@ class OpenAIService {
         final responseData = jsonDecode(response.body);
         var content = responseData['choices'][0]['message']['content'];
 
-        // Normalize encoding + humanize
         content = _normalizeText(content);
         var parsed = jsonDecode(content);
 
+        if (parsed['score'] != null) {
+          int score = int.tryParse(parsed['score'].toString()) ?? 0;
+          parsed['score'] = score.clamp(0, 100);
+        }
+
         if (parsed['enhanced_plan'] != null) {
+          parsed['enhanced_plan'] = _cleanText(parsed['enhanced_plan']);
+          parsed['enhanced_plan'] = _formatLessonPlanText(parsed['enhanced_plan']);
           parsed['enhanced_plan'] = _humanizeText(parsed['enhanced_plan']);
+        }
+
+        if (parsed['feedback'] != null && parsed['feedback'] is List) {
+          parsed['feedback'] = (parsed['feedback'] as List)
+              .map((f) => _cleanText(f.toString()))
+              .toList();
         }
 
         return parsed;
@@ -86,7 +146,7 @@ class OpenAIService {
     }
   }
 
-  /// Analyze a lesson plan image
+  /// Analyze lesson plan from image
   Future<Map<String, dynamic>> analyzeLessonPlanImage(File imageFile) async {
     try {
       final apiKey = _apiKey;
@@ -139,12 +199,24 @@ class OpenAIService {
         final responseData = jsonDecode(response.body);
         var content = responseData['choices'][0]['message']['content'];
 
-        // Normalize + humanize
         content = _normalizeText(content);
         var parsed = jsonDecode(content);
 
+        if (parsed['score'] != null) {
+          int score = int.tryParse(parsed['score'].toString()) ?? 0;
+          parsed['score'] = score.clamp(0, 100);
+        }
+
         if (parsed['enhanced_plan'] != null) {
+          parsed['enhanced_plan'] = _cleanText(parsed['enhanced_plan']);
+          parsed['enhanced_plan'] = _formatLessonPlanText(parsed['enhanced_plan']);
           parsed['enhanced_plan'] = _humanizeText(parsed['enhanced_plan']);
+        }
+
+        if (parsed['feedback'] != null && parsed['feedback'] is List) {
+          parsed['feedback'] = (parsed['feedback'] as List)
+              .map((f) => _cleanText(f.toString()))
+              .toList();
         }
 
         return parsed;
@@ -156,7 +228,7 @@ class OpenAIService {
     }
   }
 
-  /// Extract teacher/school details from document image
+  /// Extract teacher/school info from registration doc
   Future<Map<String, dynamic>> extractRegistrationInfo(File documentImage) async {
     try {
       final apiKey = _apiKey;
@@ -205,8 +277,13 @@ class OpenAIService {
       if (response.statusCode == 200) {
         final responseData = jsonDecode(response.body);
         var content = responseData['choices'][0]['message']['content'];
+
         content = _normalizeText(content);
-        return jsonDecode(content);
+        var parsed = jsonDecode(content);
+
+        parsed.updateAll((key, value) => _cleanText(value.toString()));
+
+        return parsed;
       } else {
         throw Exception('API Error: ${response.statusCode} - ${response.body}');
       }
@@ -215,7 +292,7 @@ class OpenAIService {
     }
   }
 
-  /// Build user prompt for text lesson plan
+  /// Prompt template
   String _buildPrompt(String lessonPlan) {
     return """
     Analyze this Ugandan primary school lesson plan and return JSON with:

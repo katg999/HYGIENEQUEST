@@ -13,7 +13,7 @@ class AttendanceService {
   
   static String? get _apiKey => dotenv.env['API_KEY'];
 
-  Future<Map<String, dynamic>> processAttendanceRegister(File imageFile) async {
+ Future<Map<String, dynamic>> processAttendanceRegister(File imageFile) async {
   try {
     // Step 1: Send image directly to OpenAI for analysis
     final analysis = await _analyzeAttendanceImage(imageFile);
@@ -30,6 +30,49 @@ class AttendanceService {
     return {
       'success': false,
       'error': e.toString(),
+    };
+  }
+}
+
+Future<Map<String, dynamic>> submitAttendanceData({
+  required String phone,
+  required int studentsPresent,
+  required int studentsAbsent,
+  required String absenceReason,
+  required String subject,
+  required String district,
+}) async {
+  try {
+    // CORRECTED: Use the actual backend URL for attendance
+    final response = await http.post(
+      Uri.parse('https://hygienequestemdpoints.onrender.com/attendance'),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({
+        'phone': phone,
+        'students_present': studentsPresent,
+        'students_absent': studentsAbsent,
+        'absence_reason': absenceReason,
+        'subject': subject,
+        'district': district,
+      }),
+    );
+
+    if (response.statusCode == 201) {
+      return {
+        'success': true,
+        'message': 'Attendance submitted successfully',
+        'data': jsonDecode(response.body),
+      };
+    } else {
+      return {
+        'success': false,
+        'error': 'Failed to submit attendance: ${response.statusCode} - ${response.body}',
+      };
+    }
+  } catch (e) {
+    return {
+      'success': false,
+      'error': 'Error submitting attendance: ${e.toString()}',
     };
   }
 }
@@ -53,24 +96,36 @@ class AttendanceService {
         'Authorization': 'Bearer $apiKey',
       },
       body: jsonEncode({
-        'model': 'gpt-4.1',
+        'model': 'gpt-4o', // Use vision model for image analysis
         'messages': [
           {
             'role': 'system',
             'content': 'You are an expert in analyzing Ugandan school attendance registers. '
-                'Extract student names and absence reasons from the image. '
-                'Return JSON with: students (array of {name, status, reason}), '
-                'summary (object with present_count, absent_count, total_count), '
-                'date (extracted date or null).'
+                'Extract the following information from the image: '
+                '1. Student names, attendance status (present/absent), and absence reasons '
+                '2. Date of attendance '
+                '3. Class/subject information '
+                '4. School district/location '
+                '5. Main reason for absences (if multiple students are absent for similar reasons) '
+                'Return JSON with this structure: '
+                '{'
+                '  "students": [{"name": "string", "status": "present/absent", "reason": "string"}],'
+                '  "summary": {"present_count": number, "absent_count": number, "total_count": number},'
+                '  "date": "string",'
+                '  "class_info": "string",'
+                '  "district": "string",'
+                '  "subject": "string",'
+                '  "absence_reason": "string" (main reason if multiple absences, otherwise "Various reasons")'
+                '}'
           },
           {
             'role': 'user',
             'content': [
               {
                 'type': 'text',
-                'text': 'Analyze this Ugandan school attendance register image. '
-                    'Extract all student names, present/absent status, and absence reasons. '
-                    'Also identify the date if visible.'
+                'text': 'Analyze this Ugandan school attendance register image thoroughly. '
+                    'Extract all student names, their present/absent status, and specific absence reasons. '
+                    'Identify the date, class/subject, school district, and determine the main reason for absences if multiple students are absent for similar reasons.'
               },
               {
                 'type': 'image_url',
@@ -83,19 +138,57 @@ class AttendanceService {
         ],
         'response_format': {'type': 'json_object'},
         'temperature': 0.1,
-        'max_tokens': 2000,
+        'max_tokens': 3000,
       }),
     );
 
     if (response.statusCode == 200) {
       final responseData = jsonDecode(response.body);
-      return jsonDecode(responseData['choices'][0]['message']['content']);
+      final analysisResult = jsonDecode(responseData['choices'][0]['message']['content']);
+      
+      // Ensure all required fields are present with fallback values
+      return {
+        'students': analysisResult['students'] ?? [],
+        'summary': analysisResult['summary'] ?? {'present_count': 0, 'absent_count': 0, 'total_count': 0},
+        'date': analysisResult['date'] ?? 'Not specified',
+        'class_info': analysisResult['class_info'] ?? 'Not specified',
+        'district': analysisResult['district'] ?? 'Not specified',
+        'subject': analysisResult['subject'] ?? 'General',
+        'absence_reason': analysisResult['absence_reason'] ?? _determineMainAbsenceReason(analysisResult['students'] ?? []),
+        'participation_insights': analysisResult['participation_insights'] ?? 'No specific insights available',
+      };
     } else {
       throw Exception('OpenAI API Error: ${response.statusCode} - ${response.body}');
     }
   } catch (e) {
     throw Exception('Image analysis failed: ${e.toString()}');
   }
+}
+
+// Helper method to determine the main absence reason from student data
+String _determineMainAbsenceReason(List<dynamic> students) {
+  final absentStudents = students.where((student) => 
+      student is Map && student['status']?.toString().toLowerCase() == 'absent');
+  
+  if (absentStudents.isEmpty) return 'No absences';
+  
+  // Count frequency of each reason
+  final reasonCounts = <String, int>{};
+  for (final student in absentStudents) {
+    final reason = student['reason']?.toString().trim();
+    if (reason != null && reason.isNotEmpty && reason != 'No reason provided') {
+      reasonCounts[reason] = (reasonCounts[reason] ?? 0) + 1;
+    }
+  }
+  
+  if (reasonCounts.isEmpty) return 'Various reasons';
+  
+  // Find the most common reason
+  final mostCommonReason = reasonCounts.entries.reduce((a, b) => 
+      a.value > b.value ? a : b);
+  
+  // If one reason dominates, return it, otherwise return "Various reasons"
+  return mostCommonReason.value > 1 ? mostCommonReason.key : 'Various reasons';
 }
 
   Future<File> _generateAttendancePDF(Map<String, dynamic> analysis) async {
@@ -155,6 +248,10 @@ class AttendanceService {
                     pw.Text('Present: ${summary['present_count'] ?? 0}'),
                     pw.Text('Absent: ${summary['absent_count'] ?? 0}'),
                     pw.Text('Attendance Rate: ${_calculateAttendanceRate(summary)}%'),
+                    // Inside _generateAttendancePDF method, add these to the PDF content:
+                    pw.Text('District: ${analysis['district'] ?? 'Not specified'}'),
+                    pw.Text('Subject: ${analysis['subject'] ?? 'General'}'),
+                    pw.Text('Main Absence Reason: ${analysis['absence_reason'] ?? 'Not specified'}'),
                   ],
                 ),
               ),

@@ -6,6 +6,9 @@ import 'dart:io';
 import 'auth_service.dart';
 import 'onboard_screening.dart';
 import 'openai_service.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:http/http.dart' as http;
+import 'package:shared_preferences/shared_preferences.dart';
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});
@@ -467,67 +470,73 @@ class _RegisterScreenState extends State<RegisterScreen> {
     }
   }
 
+
+
   Future<void> _verifyOtp() async {
-    setState(() => _isLoading = true);
-    try {
-      final verified = await _authService.verifyOtp(_phoneNumber, _otp);
-      if (verified) {
-        await _registerUser();
-      } else {
-        setState(() {
-          _conversation.add({
-            'sender': 'bot',
-            'message': 'Invalid OTP. Please try again.',
-          });
-          _currentStep = 5;
-        });
-      }
-    } catch (e) {
+  setState(() => _isLoading = true);
+  try {
+    final verified = await _authService.verifyOtp(_phoneNumber, _otp);
+    if (verified) {
+      await _registerUser();  // This will call the method that contains the await statements
+    } else {
       setState(() {
         _conversation.add({
           'sender': 'bot',
-          'message': 'Error verifying OTP. Please try again.',
+          'message': 'Invalid OTP. Please try again.',
         });
+        _currentStep = 5;
       });
-    } finally {
-      setState(() => _isLoading = false);
     }
+  } catch (e) {
+    setState(() {
+      _conversation.add({
+        'sender': 'bot',
+        'message': 'Error verifying OTP. Please try again.',
+      });
+    });
+  } finally {
+    setState(() => _isLoading = false);
   }
+}
 
-  Future<void> _registerUser() async {
-    try {
-      await _authService.registerUser({
-        'phone': _phoneNumber,
-        'name': _fullName,
-        'school': _school,
-        'district': _district,
-        'language': _language,
-      });
+  Future<void> _registerUser() async {  // ✅ Make this method async
+  try {
+    await _authService.registerUser({
+      'phone': _phoneNumber,
+      'name': _fullName,
+      'school': _school,
+      'district': _district,
+      'language': _language,
+    });
 
-      setState(() {
-        _conversation.addAll([
-          {
-            'sender': 'bot',
-            'message': "OTP verified successfully!",
-          },
-          {
-            'sender': 'bot',
-            'message': "Account created successfully!",
-          },
-          {
-            'sender': 'bot',
-            'message': "Registration complete! Please go back to the login screen to sign in.",
-          },
-        ]);
-        _registrationComplete = true;
-      });
-    } catch (e) {
-      setState(() {
-        _conversation.add({
+    // ✅ CORRECT: Move await statements INSIDE async method
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('userPhone', _phoneNumber);
+
+    setState(() {
+      _conversation.addAll([
+        {
           'sender': 'bot',
-          'message': 'Error creating account. Please try again.',
-        });
+          'message': "OTP verified successfully!",
+        },
+        {
+          'sender': 'bot',
+          'message': "Account created successfully!",
+        },
+        {
+          'sender': 'bot',
+          'message': "Registration complete! Please go back to the login screen to sign in.",
+        },
+      ]);
+      _registrationComplete = true;
+    });
+  } catch (e) {
+    setState(() {
+      _conversation.add({
+        'sender': 'bot',
+        'message': 'Error creating account. Please try again.',
       });
-    }
+    });
   }
+}
 }
